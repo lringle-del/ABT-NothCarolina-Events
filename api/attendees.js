@@ -73,7 +73,10 @@ function buildFamilies(attendees){
   return [...orders.values()];
 }
 async function discoverEvents(token){
-  const map={}, candidates=[];
+  // There can be several similarly-named events (a Charlotte "Magical Day" AND
+  // a Cary "Magical Day", plus multiple "We Rock the Spectrum" time slots), so
+  // collect ALL matching ids per event rather than just the first.
+  const charlotteIds=[], caryIds=[], candidates=[];
   try{
     const me=await ebGet(`/users/me/organizations/`, token);
     for(const org of me.organizations||[]){
@@ -85,38 +88,47 @@ async function discoverEvents(token){
           const name=((ev.name&&ev.name.text)||"");
           const n=name.toLowerCase();
           candidates.push({id:ev.id, name, status:ev.status});
-          if(n.includes("magical")) map.charlotte=map.charlotte||ev.id;
-          if(n.includes("spectrum")||n.includes("cary")||n.includes("we rock")) map.cary=map.cary||ev.id;
+          // Charlotte = the "Magical Day" event that is NOT the Cary one.
+          if(n.includes("magical") && !n.includes("cary")) charlotteIds.push(ev.id);
+          // Cary = the "We Rock the Spectrum" event(s) — all time slots.
+          if(n.includes("spectrum") || n.includes("we rock")) caryIds.push(ev.id);
         }
         pages=d.pagination?d.pagination.page_count:1;
       } while(page++<pages && page<=20);
     }
   }catch(e){}
-  return {map, candidates};
+  return {charlotteIds, caryIds, candidates};
+}
+// Fetch and merge attendees across a list of event ids.
+async function attendeesForAll(idList, token){
+  let raw=[];
+  for(const id of idList) raw = raw.concat(await allAttendees(id, token));
+  return raw;
 }
 
 export default async function handler(req,res){
   const debug = req.query && req.query.debug;
   const token = process.env.EVENTBRITE_TOKEN;
   if(!token) return res.status(200).json(meta(null,false,"No EVENTBRITE_TOKEN set yet.",debug));
-  let candidates=[], ids={};
+  let candidates=[], charlotteIds=[], caryIds=[];
+  const envList=v=>v?String(v).split(",").map(s=>s.trim()).filter(Boolean):null;
   try{
-    ({map:ids, candidates}=await discoverEvents(token));
-    const charlotteId=process.env.EVENT_CHARLOTTE||ids.charlotte;
-    const caryId=process.env.EVENT_CARY||ids.cary;
-    if(!charlotteId && !caryId) throw new Error("No matching events found for this token.");
+    ({charlotteIds, caryIds, candidates}=await discoverEvents(token));
+    // Env vars (comma-separated ids) override auto-discovery when set.
+    const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
+    const caryList=envList(process.env.EVENT_CARY)||caryIds;
+    if(!charList.length && !caryList.length) throw new Error("No matching events found for this token.");
     const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
 
-    let charRaw=[], caryRaw=[];
-    let charFams=[];
-    if(charlotteId){ charRaw=await allAttendees(charlotteId,token); charFams=buildFamilies(charRaw).map(f=>{
+    const charRaw=await attendeesForAll(charList,token);
+    const charFams=buildFamilies(charRaw).map(f=>{
       const c=[...f.emails].some(e=>confirmed.has(e)); delete f.emails;
       return {...f, confirmed:c, count:f.attendees.length};
-    }); }
-    let caryFams=[];
-    if(caryId){ caryRaw=await allAttendees(caryId,token); caryFams=buildFamilies(caryRaw).map(f=>{
+    });
+    const caryRaw=await attendeesForAll(caryList,token);
+    const caryFams=buildFamilies(caryRaw).map(f=>{
       delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
-    }); }
+    });
     for(const ff of CARY_FORM_FAMILIES) caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length});
 
     const out={events:[
@@ -125,15 +137,15 @@ export default async function handler(req,res){
     ]};
     res.setHeader("Cache-Control","s-maxage=300, stale-while-revalidate=600");
     return res.status(200).json(meta(out,true,null,debug,{
-      charlotteId, caryId,
+      charlotteIds:charList, caryIds:caryList,
       charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
       caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
       candidates
     }));
   }catch(err){
     return res.status(200).json(meta(null,false,String(err&&err.message||err),debug,{
-      charlotteId:process.env.EVENT_CHARLOTTE||ids.charlotte||null,
-      caryId:process.env.EVENT_CARY||ids.cary||null,
+      charlotteIds:envList(process.env.EVENT_CHARLOTTE)||charlotteIds,
+      caryIds:envList(process.env.EVENT_CARY)||caryIds,
       candidates
     }));
   }
