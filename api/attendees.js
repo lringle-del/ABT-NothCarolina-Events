@@ -18,12 +18,21 @@ async function ebGet(path, token, params={}){
   return r.json();
 }
 async function allAttendees(eventId, token){
-  let out=[], cont=null, guard=0;
-  do{
-    const d = await ebGet(`/events/${eventId}/attendees/`, token, cont?{continuation:cont}:{});
-    out = out.concat(d.attendees||[]);
-    cont = d.pagination && d.pagination.has_more_items ? d.pagination.continuation : null;
-  } while(cont && ++guard<50);
+  let out=[], cont=null, page=1, guard=0;
+  // Eventbrite returns attendees ~50 at a time. Walk every page via the
+  // continuation token, falling back to page numbers if no token is given.
+  while(++guard<=200){
+    const params={expand:"profile,answers", page_size:200};
+    if(cont) params.continuation=cont;
+    else if(page>1) params.page=page;
+    const d = await ebGet(`/events/${eventId}/attendees/`, token, params);
+    const batch = d.attendees||[];
+    out = out.concat(batch);
+    const p = d.pagination||{};
+    if(p.has_more_items && p.continuation){ cont=p.continuation; page++; continue; }
+    if(p.has_more_items && p.page_count && page<p.page_count && batch.length){ page++; continue; }
+    break;
+  }
   return out;
 }
 function findAnswer(answers, keywords){
@@ -64,15 +73,18 @@ function buildFamilies(attendees){
   return [...orders.values()];
 }
 async function discoverEvents(token){
-  const map={};
+  const map={}, candidates=[];
   try{
     const me=await ebGet(`/users/me/organizations/`, token);
     for(const org of me.organizations||[]){
       let page=1, pages=1;
       do{
-        const d=await ebGet(`/organizations/${org.id}/events/`, token, {order_by:"created_desc",page});
+        // status:"all" so already-passed events are still returned.
+        const d=await ebGet(`/organizations/${org.id}/events/`, token, {order_by:"created_desc",status:"all",page});
         for(const ev of d.events||[]){
-          const n=((ev.name&&ev.name.text)||"").toLowerCase();
+          const name=((ev.name&&ev.name.text)||"");
+          const n=name.toLowerCase();
+          candidates.push({id:ev.id, name, status:ev.status});
           if(n.includes("magical")) map.charlotte=map.charlotte||ev.id;
           if(n.includes("spectrum")||n.includes("cary")||n.includes("we rock")) map.cary=map.cary||ev.id;
         }
@@ -80,7 +92,7 @@ async function discoverEvents(token){
       } while(page++<pages && page<=20);
     }
   }catch(e){}
-  return map;
+  return {map, candidates};
 }
 
 export default async function handler(req,res){
@@ -88,21 +100,22 @@ export default async function handler(req,res){
   const token = process.env.EVENTBRITE_TOKEN;
   if(!token) return res.status(200).json(meta(null,false,"No EVENTBRITE_TOKEN set yet.",debug));
   try{
-    const ids=await discoverEvents(token);
+    const {map:ids, candidates}=await discoverEvents(token);
     const charlotteId=process.env.EVENT_CHARLOTTE||ids.charlotte;
     const caryId=process.env.EVENT_CARY||ids.cary;
     if(!charlotteId && !caryId) throw new Error("No matching events found for this token.");
     const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
 
+    let charRaw=[], caryRaw=[];
     let charFams=[];
-    if(charlotteId) charFams=buildFamilies(await allAttendees(charlotteId,token)).map(f=>{
+    if(charlotteId){ charRaw=await allAttendees(charlotteId,token); charFams=buildFamilies(charRaw).map(f=>{
       const c=[...f.emails].some(e=>confirmed.has(e)); delete f.emails;
       return {...f, confirmed:c, count:f.attendees.length};
-    });
+    }); }
     let caryFams=[];
-    if(caryId) caryFams=buildFamilies(await allAttendees(caryId,token)).map(f=>{
+    if(caryId){ caryRaw=await allAttendees(caryId,token); caryFams=buildFamilies(caryRaw).map(f=>{
       delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
-    });
+    }); }
     for(const ff of CARY_FORM_FAMILIES) caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length});
 
     const out={events:[
@@ -110,7 +123,12 @@ export default async function handler(req,res){
       {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
     ]};
     res.setHeader("Cache-Control","s-maxage=300, stale-while-revalidate=600");
-    return res.status(200).json(meta(out,true,null,debug,{charlotteId,caryId}));
+    return res.status(200).json(meta(out,true,null,debug,{
+      charlotteId, caryId,
+      charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
+      caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
+      candidates
+    }));
   }catch(err){
     return res.status(200).json(meta(null,false,String(err&&err.message||err),debug));
   }
