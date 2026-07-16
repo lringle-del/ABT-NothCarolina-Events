@@ -88,11 +88,10 @@ async function discoverEvents(token){
           const name=((ev.name&&ev.name.text)||"");
           const n=name.toLowerCase();
           candidates.push({id:ev.id, name, status:ev.status});
-          // Charlotte = the "Magical Day" event that is NOT the Cary one.
+          // Both events are "Magical Day of Fun" — split by city.
+          // (The separate "We Rock the Spectrum" events are intentionally ignored.)
           if(n.includes("magical") && !n.includes("cary")) charlotteIds.push(ev.id);
-          // Cary = anything Cary-related: the "We Rock the Spectrum" time slots
-          // AND the Cary "Magical Day of Fun" event.
-          if(n.includes("cary") || n.includes("spectrum") || n.includes("we rock")) caryIds.push(ev.id);
+          if(n.includes("magical") && n.includes("cary")) caryIds.push(ev.id);
         }
         pages=d.pagination?d.pagination.page_count:1;
       } while(page++<pages && page<=20);
