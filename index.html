@@ -134,7 +134,7 @@ document.getElementById('note').innerHTML='<b>Good to know:</b> “Interested in
 function setStatus(cls,txt){const s=document.getElementById('status');s.className='status '+cls;document.getElementById('statusText').textContent=txt;}
 draw();
 // Try live Eventbrite data; fall back silently to the embedded snapshot.
-fetch('/api/attendees').then(r=>r.json()).then(d=>{
+fetch('/api/attendees?ts='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(d=>{
  if(d&&d.events&&d.events.length&&d.events.some(e=>e.families&&e.families.length)){DB=d;EV=DB.events;cur=Math.min(cur,EV.length-1);draw();}
  const m=d&&d._meta;
  if(m&&m.live){const now=new Date();setStatus('live','● Live from Eventbrite · updated '+now.toLocaleString());}

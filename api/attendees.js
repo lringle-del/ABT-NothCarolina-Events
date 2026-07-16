@@ -135,7 +135,7 @@ export default async function handler(req,res){
       {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
       {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
     ]};
-    res.setHeader("Cache-Control","s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control","s-maxage=30, stale-while-revalidate=60");
     return res.status(200).json(meta(out,true,null,debug,{
       charlotteIds:charList, caryIds:caryList,
       charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
