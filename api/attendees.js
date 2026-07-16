@@ -22,7 +22,7 @@ async function allAttendees(eventId, token){
   // Eventbrite returns attendees ~50 at a time. Walk every page via the
   // continuation token, falling back to page numbers if no token is given.
   while(++guard<=200){
-    const params={expand:"profile,answers", page_size:200};
+    const params={};
     if(cont) params.continuation=cont;
     else if(page>1) params.page=page;
     const d = await ebGet(`/events/${eventId}/attendees/`, token, params);
@@ -99,8 +99,9 @@ export default async function handler(req,res){
   const debug = req.query && req.query.debug;
   const token = process.env.EVENTBRITE_TOKEN;
   if(!token) return res.status(200).json(meta(null,false,"No EVENTBRITE_TOKEN set yet.",debug));
+  let candidates=[], ids={};
   try{
-    const {map:ids, candidates}=await discoverEvents(token);
+    ({map:ids, candidates}=await discoverEvents(token));
     const charlotteId=process.env.EVENT_CHARLOTTE||ids.charlotte;
     const caryId=process.env.EVENT_CARY||ids.cary;
     if(!charlotteId && !caryId) throw new Error("No matching events found for this token.");
@@ -130,7 +131,11 @@ export default async function handler(req,res){
       candidates
     }));
   }catch(err){
-    return res.status(200).json(meta(null,false,String(err&&err.message||err),debug));
+    return res.status(200).json(meta(null,false,String(err&&err.message||err),debug,{
+      charlotteId:process.env.EVENT_CHARLOTTE||ids.charlotte||null,
+      caryId:process.env.EVENT_CARY||ids.cary||null,
+      candidates
+    }));
   }
 }
 function meta(data,live,message,debug,extra){
