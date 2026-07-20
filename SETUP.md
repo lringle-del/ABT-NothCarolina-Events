@@ -1,8 +1,10 @@
 # ABT North Carolina Events — Dashboard Setup
 
-Live attendee dashboard for the Above & Beyond ABA events (Charlotte + Cary),
-hosted on Vercel. It's a static page (`index.html`) plus one serverless
-function (`api/attendees.js`) that securely pulls attendees from Eventbrite.
+Live attendee dashboard for the Above & Beyond ABA **"Free Event at We Rock the
+Spectrum Kids Gym"** event, hosted on Vercel. It's a static page (`index.html`)
+plus one serverless function (`api/attendees.js`) that securely pulls attendees
+from Eventbrite, showing every registration question, per-time-slot results, and
+an approve/reject workflow.
 
 ## Making the site public to everyone
 
@@ -27,11 +29,20 @@ Once disabled, anyone with the link can view the dashboard — no login needed.
 | Variable            | Required | Purpose                                                        |
 | ------------------- | -------- | -------------------------------------------------------------- |
 | `EVENTBRITE_TOKEN`  | Yes      | Private Eventbrite API token. Server-side only; never exposed. |
-| `EVENT_CHARLOTTE`   | Optional | Charlotte Eventbrite event ID (otherwise auto-discovered).     |
-| `EVENT_CARY`        | Optional | Cary Eventbrite event ID (otherwise auto-discovered).          |
-| `EVENT_WRTS`        | Optional | We Rock the Spectrum event IDs, **comma-separated** (one per time slot). Otherwise auto-discovered by name. |
+| `EVENT_WRTS`        | Optional | We Rock the Spectrum event IDs, **comma-separated** (one per time slot). Otherwise auto-discovered by name, with a built-in fallback to the known listing. |
 
 After changing environment variables, **redeploy** for them to take effect.
+
+### Approve / reject workflow
+
+Every registration has **Approve** and **Reject** buttons. Registrations where
+**no guest has an autism diagnosis** are also collected in a **Needs review**
+section at the top of the page, and you can filter the list by
+All / Needs review / Approved / Rejected.
+
+> Decisions are saved in **your browser** (localStorage), so they persist for
+> you across reloads but are not yet shared across devices or teammates. Ask if
+> you'd like these moved to a shared server-side store.
 
 ### We Rock the Spectrum tab
 
@@ -96,22 +107,21 @@ just reports who it would email):
 | `CRON_SECRET`          | Any long random string; authorizes the cron / manual calls.   |
 | `RESEND_API_KEY`       | From resend.com. Enables sending.                             |
 | `REMINDERS_LIVE`       | Set to `1` only when you're ready for real emails to go out.   |
-| `EVENT_CHARLOTTE_DATE` | Charlotte event date, `YYYY-MM-DD`.                           |
-| `EVENT_CARY_DATE`      | Cary event date, `YYYY-MM-DD`.                               |
+| `EVENT_WRTS_DATE`      | We Rock the Spectrum event date, `YYYY-MM-DD`.                |
 | `REMINDER_OFFSETS`     | (optional) days-before to send, e.g. `3,1,0`. Default `2,0`.  |
 | `REMINDER_FROM`        | (optional) From address. Default `reminders@abtaba.com`.      |
 
 ### Preview it before going live
 
 Open (while logged in):
-`/api/send-reminders?event=charlotte&audience=pending&key=YOUR_CRON_SECRET&force=1`
+`/api/send-reminders?event=wrts&audience=all&key=YOUR_CRON_SECRET&force=1`
 It lists exactly who would be emailed. When happy, set `REMINDERS_LIVE=1`.
 
 ## Local / structure notes
 
 - `index.html` — the dashboard UI; fetches `/api/attendees`.
-- `api/attendees.js` — Vercel serverless function; Eventbrite sync (Charlotte,
-  Cary, and We Rock the Spectrum) + static form families. Returns all questions.
+- `api/attendees.js` — Vercel serverless function; Eventbrite sync for the
+  We Rock the Spectrum event. Returns every registration question and answer.
 - `api/send-email.js` — compose-and-send endpoint (Resend), preview-safe.
 - `api/send-reminders.js` — automated daily reminder cron (Resend).
 - No build step is required; Vercel serves the static file and the functions
