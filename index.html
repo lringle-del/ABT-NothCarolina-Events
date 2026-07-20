@@ -77,6 +77,7 @@ h1{font-family:'Libre Caslon Display',Georgia,serif;font-weight:400;font-size:cl
   <div class="seg" id="seg"></div>
   <button class="dl" id="dlEvent">⬇ Emails (this event)</button>
   <button class="dl alt" id="dlAll">⬇ All emails</button>
+  <button class="dl" id="emailPending">✉ Email not-confirmed</button>
 </div>
 <div id="list"></div>
 <div class="note" id="note"></div>
@@ -130,6 +131,16 @@ document.getElementById('dlEvent').addEventListener('click',()=>{const e=EV[cur]
  for(const f of e.families){const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);out.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No')]);}dl('emails_'+e.name.toLowerCase()+'.csv',out);});
 document.getElementById('dlAll').addEventListener('click',()=>{let rows=[['Event','Family / Parent','Email','Phone','Guests','Confirmed']];const seen=new Set();
  for(const e of EV)for(const f of e.families){const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);rows.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No')]);}dl('emails_all_events.csv',rows);});
+document.getElementById('emailPending').addEventListener('click',()=>{const e=EV[cur];const seen=new Set();const emails=[];
+ for(const f of e.families){if(f.confirmed)continue;const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);emails.push(f.email);}
+ if(!emails.length){alert('Everyone in '+e.name+' is already confirmed — no reminders needed. 🎉');return;}
+ const list=emails.join(';');
+ const subject=encodeURIComponent(e.name+' Event — Friendly Reminder');
+ const body=encodeURIComponent('Hi there,\n\nThis is a friendly reminder about our upcoming '+e.name+' event. We can’t wait to see you and your family there!\n\nWarm regards,\nAbove & Beyond ABA');
+ if(navigator.clipboard)navigator.clipboard.writeText(list).catch(()=>{});
+ const href='mailto:?bcc='+encodeURIComponent(list)+'&subject='+subject+'&body='+body;
+ alert(emails.length+' not-confirmed '+e.name+' families added to BCC. (Also copied to your clipboard as backup — if the BCC line is empty, just paste into it.)');
+ window.location.href=href;});
 document.getElementById('note').innerHTML='<b>Good to know:</b> “Interested in ABA” combines families who answered <b>Yes</b> with those <b>exploring options</b> — your warmest post-event leads. Cary registrations arrive through two channels (Eventbrite + the Microsoft Form), tagged on each family. Use the <b>email download</b> buttons for post-event outreach.';
 function setStatus(cls,txt){const s=document.getElementById('status');s.className='status '+cls;document.getElementById('statusText').textContent=txt;}
 draw();
