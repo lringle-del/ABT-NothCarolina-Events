@@ -161,12 +161,19 @@ function decisionOf(f){return decisions[famKey(f)]||'pending';}
 function setDecision(f,val){const k=famKey(f);if(val==='pending')delete decisions[k];else decisions[k]=val;
  try{localStorage.setItem(DECIDE_KEY,JSON.stringify(decisions));}catch(_){}
  refresh();}
-// A registration "needs review" when NO guest has an autism diagnosis (Yes)
-// AND no guest is seeking/exploring ABA options. (Families with no diagnosis but
-// who ARE looking into ABA are legitimate leads and don't need review.)
-function hasDx(f){return (f.attendees||[]).some(a=>(a.dx||'').toLowerCase().startsWith('yes'));}
-function lookingABA(f){return (f.attendees||[]).some(a=>{const l=(a.looking||'').toLowerCase();return l==='yes'||l.includes('exploring');});}
-function needsReview(f){return !hasDx(f) && !lookingABA(f);}
+// A registration "needs review" when NO guest on it has an autism diagnosis (Yes).
+function needsReview(f){return !((f.attendees||[]).some(a=>(a.dx||'').toLowerCase().startsWith('yes')));}
+// Rejection email template (opens in the sender's mail client, editable before sending).
+function rejectEmail(f){
+ const first=((f.purchaser||'there').trim().split(/\s+/)[0])||'there';
+ const subject='We Rock the Spectrum — Registration Update';
+ const body='Hi '+first+',\n\n'+
+  'Thank you so much for your interest in our We Rock the Spectrum event.\n\n'+
+  'We’re so sorry, but this event is designed specifically for the autism community — children with an autism diagnosis and their families. Because of that, we’re unable to confirm your registration for this event.\n\n'+
+  'We truly appreciate your understanding, and we’d love to welcome you to future events that are open to everyone.\n\n'+
+  'Warm regards,\nThe Above & Beyond ABA Team';
+ const href='mailto:'+encodeURIComponent(f.email||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+ window.location.href=href;}
 function decisionBadge(f){const d=decisionOf(f);
  if(d==='approved')return '<span class="badge b-appr">✓ Approved</span>';
  if(d==='rejected')return '<span class="badge b-rej">✕ Rejected</span>';
@@ -175,7 +182,10 @@ function decisionControls(f){const d=decisionOf(f);
  const b=(val,label,cls)=>'<button class="dbtn '+cls+(d===val?' on':'')+'" data-act="'+val+'" onclick="event.stopPropagation();decide(this)">'+label+'</button>';
  return '<span class="dwrap">'+b('approved','✓ Approve','ap')+b('rejected','✕ Reject','rj')+'</span>';}
 function decide(el){const row=el.closest('[data-i]');if(!row)return;const f=EV[cur].families[+row.dataset.i];if(!f)return;
- setDecision(f, decisionOf(f)===el.dataset.act?'pending':el.dataset.act);}
+ const act=el.dataset.act;const next=decisionOf(f)===act?'pending':act;
+ setDecision(f,next);
+ // Rejecting opens a ready-to-send "sorry" email to that family.
+ if(next==='rejected'){ if(f.email) rejectEmail(f); else alert('No email address on file for this registration.'); }}
 function mm(fams){let a=0,dx=0,ly=0,le=0,hc=0;for(const f of fams){a+=f.count;for(const k of f.attendees){
  const d=(k.dx||'').toLowerCase();if(d.startsWith('yes'))dx++;const l=(k.looking||'').toLowerCase();if(l==='yes')ly++;else if(l.includes('exploring'))le++;
  if((k.haircut||'').toLowerCase()==='yes')hc++;}}return{families:fams.length,attendees:a,dx,ly,le,hc,confirmed:fams.filter(f=>f.confirmed).length};}
@@ -243,12 +253,12 @@ function resultsSection(e,fams){const wrap=document.getElementById('resultsWrap'
 function dynTiles(e){const s=mm(e.families);const t=[];
  let appr=0,rej=0,review=0;for(const f of e.families){const d=decisionOf(f);if(d==='approved')appr++;else if(d==='rejected')rej++;if(needsReview(f)&&d==='pending')review++;}
  t.push(['deep',s.families,'Registrations','']);t.push(['deep',s.attendees,'Total guests','']);
- t.push(['accent',review,'Needs review','no dx · not seeking ABA']);
+ t.push(['accent',review,'Needs review','no autism diagnosis']);
  t.push(['',appr,'Approved','']);t.push(['',rej,'Rejected','']);
  const slots=e.slots||[];const counts={};for(const f of e.families){const k=f.timeslot||'—';counts[k]=(counts[k]||0)+1;}
  for(const sl of slots)t.push(['',counts[sl]||0,sl,'registrations']);
  return t.map(x=>'<div class="tile '+x[0]+'"><div class="n">'+x[1]+'</div><div class="l">'+x[2]+'</div>'+(x[3]?'<div class="s">'+x[3]+'</div>':'')+'</div>').join('');}
-// Compact "needs review" queue — no diagnosis and not seeking ABA, pending first.
+// Compact "needs review" queue — registrations with no autism diagnosis, pending first.
 function reviewRow(f,i){const dxs=(f.attendees||[]).map(a=>(a.child||'Guest')+' ('+(a.dx||'—')+')').join(', ');
  return '<div class="rrow" data-i="'+i+'"><div class="rmain"><span class="rname">'+esc(f.purchaser||'(no name)')+'</span>'+decisionBadge(f)+
   '<div class="rmeta">✉ '+esc(f.email||'—')+(f.timeslot?' · 🕐 '+esc(f.timeslot):'')+' · '+esc(dxs||'—')+'</div></div>'+decisionControls(f)+'</div>';}
@@ -258,9 +268,9 @@ function renderReview(e){const wrap=document.getElementById('reviewWrap');
  const pend=items.filter(x=>decisionOf(x.f)==='pending');
  const decided=items.filter(x=>decisionOf(x.f)!=='pending');
  wrap.className='reviewWrap';
- if(!items.length){wrap.innerHTML='<div class="section-h">Needs review — no diagnosis &amp; not seeking ABA<span class="hint">nothing to review 🎉</span></div>';return;}
+ if(!items.length){wrap.innerHTML='<div class="section-h">Needs review — no autism diagnosis <span class="hint">nothing to review 🎉</span></div>';return;}
  const rows=[...pend,...decided].map(x=>reviewRow(x.f,x.i)).join('');
- wrap.innerHTML='<div class="section-h">Needs review — no diagnosis &amp; not seeking ABA<span class="hint">'+pend.length+' awaiting a decision'+(decided.length?(' · '+decided.length+' decided'):'')+'</span></div><div class="reviewlist">'+rows+'</div>';}
+ wrap.innerHTML='<div class="section-h">Needs review — no autism diagnosis <span class="hint">'+pend.length+' awaiting a decision'+(decided.length?(' · '+decided.length+' decided'):'')+'</span></div><div class="reviewlist">'+rows+'</div>';}
 // Rebuild the current event's decision-dependent UI without resetting filters.
 function refresh(){const e=EV[cur];
  document.getElementById('tiles').innerHTML=e.dynamic?dynTiles(e):tiles(e);
@@ -348,7 +358,7 @@ function emailFamilies(onlyPending){const e=EV[cur];const seen=new Set();const e
  window.location.href=href;}
 document.getElementById('emailPending').addEventListener('click',()=>emailFamilies(true));
 document.getElementById('emailAll').addEventListener('click',()=>emailFamilies(false));
-document.getElementById('note').innerHTML='<b>Good to know:</b> Registrations with <b>no autism diagnosis</b> and who are <b>not seeking or exploring ABA</b> are collected in the <b>Needs review</b> section up top — approve or reject each one, or use the Approve/Reject buttons on any registration. Decisions are saved in this browser. Use <b>Compose email</b> to message registrants, or the download buttons for the email list.';
+document.getElementById('note').innerHTML='<b>Good to know:</b> Registrations with <b>no autism diagnosis</b> are collected in the <b>Needs review</b> section up top — approve or reject each one, or use the Approve/Reject buttons on any registration. Clicking <b>Reject</b> opens a ready-to-send email letting that family know the event is for the autism community. Decisions are saved in this browser.';
 function setStatus(cls,txt){const s=document.getElementById('status');s.className='status '+cls;document.getElementById('statusText').textContent=txt;}
 draw();
 // Try live Eventbrite data; fall back silently to the embedded snapshot.

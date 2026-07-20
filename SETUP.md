@@ -40,6 +40,10 @@ Every registration has **Approve** and **Reject** buttons. Registrations where
 section at the top of the page, and you can filter the list by
 All / Needs review / Approved / Rejected.
 
+Clicking **Reject** opens a ready-to-send email in your mail client, pre-filled
+to that family, explaining the event is for the autism community — review/edit
+it and hit send. (Edit the wording in `index.html`, function `rejectEmail`.)
+
 > Decisions are saved in **your browser** (localStorage), so they persist for
 > you across reloads but are not yet shared across devices or teammates. Ask if
 > you'd like these moved to a shared server-side store.
