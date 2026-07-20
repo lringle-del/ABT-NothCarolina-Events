@@ -161,8 +161,12 @@ function decisionOf(f){return decisions[famKey(f)]||'pending';}
 function setDecision(f,val){const k=famKey(f);if(val==='pending')delete decisions[k];else decisions[k]=val;
  try{localStorage.setItem(DECIDE_KEY,JSON.stringify(decisions));}catch(_){}
  refresh();}
-// A registration "needs review" when NO guest on it has an autism diagnosis (Yes).
-function noDx(f){return !((f.attendees||[]).some(a=>(a.dx||'').toLowerCase().startsWith('yes')));}
+// A registration "needs review" when NO guest has an autism diagnosis (Yes)
+// AND no guest is seeking/exploring ABA options. (Families with no diagnosis but
+// who ARE looking into ABA are legitimate leads and don't need review.)
+function hasDx(f){return (f.attendees||[]).some(a=>(a.dx||'').toLowerCase().startsWith('yes'));}
+function lookingABA(f){return (f.attendees||[]).some(a=>{const l=(a.looking||'').toLowerCase();return l==='yes'||l.includes('exploring');});}
+function needsReview(f){return !hasDx(f) && !lookingABA(f);}
 function decisionBadge(f){const d=decisionOf(f);
  if(d==='approved')return '<span class="badge b-appr">✓ Approved</span>';
  if(d==='rejected')return '<span class="badge b-rej">✕ Rejected</span>';
@@ -193,7 +197,7 @@ function kids(f){const any=f.attendees.some(a=>a.child||a.dx||a.gain||a.aba);if(
   return '<tr><td class="kname">'+esc(a.child||'—')+'</td><td>'+esc(a.age||'—')+'</td><td>'+pill(a.dx)+'</td><td>'+pill(a.aba)+'</td><td>'+pill(a.looking,'look')+'</td><td class="gain">'+esc(a.gain||'—')+'</td><td>'+hc+'</td></tr>';}).join('');
  return '<table class="ktable"><thead><tr><th>Child</th><th>Age</th><th>Autism dx?</th><th>On ABA?</th><th>Seeking ABA?</th><th>What they want from the day</th><th>Haircut</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 function card(f,i,e){let badge,controls='',tag='';
- if(e.dynamic){badge=decisionBadge(f);controls=decisionControls(f);if(noDx(f))tag='<span class="tag">No autism dx</span>';}
+ if(e.dynamic){badge=decisionBadge(f);controls=decisionControls(f);if(needsReview(f))tag='<span class="tag">Needs review</span>';}
  else if(e.hasConfirm)badge=f.confirmed?'<span class="badge b-conf">✓ Confirmed</span>':'<span class="badge b-pend">Not confirmed</span>';
  else badge='<span class="badge '+(f.source==='Microsoft Form'?'b-form':'b-src')+'">'+esc(f.source||'Eventbrite')+'</span>';
  const phone=f.phone?'<span>📞 '+esc(f.phone)+'</span>':'';const slot=f.timeslot?'<span>🕐 '+esc(f.timeslot)+'</span>':'';
@@ -237,26 +241,26 @@ function resultsSection(e,fams){const wrap=document.getElementById('resultsWrap'
  wrap.className=cards.length?'':'hidden';box.innerHTML=cards.join('')||'';}
 // Tiles for the dynamic event: registrations, guests, approve/reject counts, + a tile per time slot.
 function dynTiles(e){const s=mm(e.families);const t=[];
- let appr=0,rej=0,review=0;for(const f of e.families){const d=decisionOf(f);if(d==='approved')appr++;else if(d==='rejected')rej++;if(noDx(f)&&d==='pending')review++;}
+ let appr=0,rej=0,review=0;for(const f of e.families){const d=decisionOf(f);if(d==='approved')appr++;else if(d==='rejected')rej++;if(needsReview(f)&&d==='pending')review++;}
  t.push(['deep',s.families,'Registrations','']);t.push(['deep',s.attendees,'Total guests','']);
- t.push(['accent',review,'Needs review','no autism dx']);
+ t.push(['accent',review,'Needs review','no dx · not seeking ABA']);
  t.push(['',appr,'Approved','']);t.push(['',rej,'Rejected','']);
  const slots=e.slots||[];const counts={};for(const f of e.families){const k=f.timeslot||'—';counts[k]=(counts[k]||0)+1;}
  for(const sl of slots)t.push(['',counts[sl]||0,sl,'registrations']);
  return t.map(x=>'<div class="tile '+x[0]+'"><div class="n">'+x[1]+'</div><div class="l">'+x[2]+'</div>'+(x[3]?'<div class="s">'+x[3]+'</div>':'')+'</div>').join('');}
-// Compact "needs review" queue — registrations with no autism diagnosis, pending first.
+// Compact "needs review" queue — no diagnosis and not seeking ABA, pending first.
 function reviewRow(f,i){const dxs=(f.attendees||[]).map(a=>(a.child||'Guest')+' ('+(a.dx||'—')+')').join(', ');
  return '<div class="rrow" data-i="'+i+'"><div class="rmain"><span class="rname">'+esc(f.purchaser||'(no name)')+'</span>'+decisionBadge(f)+
   '<div class="rmeta">✉ '+esc(f.email||'—')+(f.timeslot?' · 🕐 '+esc(f.timeslot):'')+' · '+esc(dxs||'—')+'</div></div>'+decisionControls(f)+'</div>';}
 function renderReview(e){const wrap=document.getElementById('reviewWrap');
  if(!e.dynamic){wrap.className='reviewWrap hidden';wrap.innerHTML='';return;}
- const items=e.families.map((f,i)=>({f,i})).filter(x=>noDx(x.f));
+ const items=e.families.map((f,i)=>({f,i})).filter(x=>needsReview(x.f));
  const pend=items.filter(x=>decisionOf(x.f)==='pending');
  const decided=items.filter(x=>decisionOf(x.f)!=='pending');
  wrap.className='reviewWrap';
- if(!items.length){wrap.innerHTML='<div class="section-h">Needs review — no autism diagnosis <span class="hint">nothing to review 🎉</span></div>';return;}
+ if(!items.length){wrap.innerHTML='<div class="section-h">Needs review — no diagnosis &amp; not seeking ABA<span class="hint">nothing to review 🎉</span></div>';return;}
  const rows=[...pend,...decided].map(x=>reviewRow(x.f,x.i)).join('');
- wrap.innerHTML='<div class="section-h">Needs review — no autism diagnosis <span class="hint">'+pend.length+' awaiting a decision'+(decided.length?(' · '+decided.length+' decided'):'')+'</span></div><div class="reviewlist">'+rows+'</div>';}
+ wrap.innerHTML='<div class="section-h">Needs review — no diagnosis &amp; not seeking ABA<span class="hint">'+pend.length+' awaiting a decision'+(decided.length?(' · '+decided.length+' decided'):'')+'</span></div><div class="reviewlist">'+rows+'</div>';}
 // Rebuild the current event's decision-dependent UI without resetting filters.
 function refresh(){const e=EV[cur];
  document.getElementById('tiles').innerHTML=e.dynamic?dynTiles(e):tiles(e);
@@ -289,7 +293,7 @@ function apply(){const e=EV[cur];const fams=e.families;const visible=[];
  if(filter==='Eventbrite'&&f.source!=='Eventbrite')ok=false;if(filter==='Microsoft Form'&&f.source!=='Microsoft Form')ok=false;
  if(filter==='approved'&&decisionOf(f)!=='approved')ok=false;
  if(filter==='rejected'&&decisionOf(f)!=='rejected')ok=false;
- if(filter==='review'&&!(noDx(f)&&decisionOf(f)==='pending'))ok=false;
+ if(filter==='review'&&!(needsReview(f)&&decisionOf(f)==='pending'))ok=false;
  if(slotFilter!=='all'&&(f.timeslot||'—')!==slotFilter)ok=false;
  if(ok&&query){const extra=e.dynamic?f.attendees.map(a=>(a.qa||[]).map(x=>x.a).join(' ')).join(' '):f.attendees.map(a=>a.child+' '+a.gain).join(' ');
   const hay=(f.purchaser+' '+f.email+' '+f.phone+' '+extra).toLowerCase();ok=hay.includes(query);}
@@ -344,7 +348,7 @@ function emailFamilies(onlyPending){const e=EV[cur];const seen=new Set();const e
  window.location.href=href;}
 document.getElementById('emailPending').addEventListener('click',()=>emailFamilies(true));
 document.getElementById('emailAll').addEventListener('click',()=>emailFamilies(false));
-document.getElementById('note').innerHTML='<b>Good to know:</b> Registrations with <b>no autism diagnosis</b> are collected in the <b>Needs review</b> section up top — approve or reject each one, or use the Approve/Reject buttons on any registration. Decisions are saved in this browser. Use <b>Compose email</b> to message registrants, or the download buttons for the email list.';
+document.getElementById('note').innerHTML='<b>Good to know:</b> Registrations with <b>no autism diagnosis</b> and who are <b>not seeking or exploring ABA</b> are collected in the <b>Needs review</b> section up top — approve or reject each one, or use the Approve/Reject buttons on any registration. Decisions are saved in this browser. Use <b>Compose email</b> to message registrants, or the download buttons for the email list.';
 function setStatus(cls,txt){const s=document.getElementById('status');s.className='status '+cls;document.getElementById('statusText').textContent=txt;}
 draw();
 // Try live Eventbrite data; fall back silently to the embedded snapshot.
