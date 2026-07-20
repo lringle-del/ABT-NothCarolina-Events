@@ -10,6 +10,10 @@ const TEST_EMAILS = new Set([
   "kristen.porras@powerdigitalmarketinginc.com"
 ]);
 const isTest = e => TEST_EMAILS.has((e||"").trim().toLowerCase());
+// Known "Free Event at We Rock the Spectrum Kids Gym" listing(s). Used as a
+// fallback so the tab works even if name-based discovery misses it. Override
+// entirely with the EVENT_WRTS env var (comma-separated ids).
+const DEFAULT_WRTS_IDS = ["1993615746364"];
 
 // Static data not held in Eventbrite: Charlotte confirmations + Cary form families.
 const CONFIRMED_EMAILS = ["asanthoshsagar@outlook.com", "bmsmall19@yahoo.com", "jasminebratton9023@gmail.com", "ms.s.burns@gmail.com", "nturner1st@gmail.com", "shakethacrawford@yahoo.com", "slouther@gmail.com", "swathi.gujjari9@gmail.com", "tfedwards85@gmail.com", "thebestofthebest24@gmail.com", "tuliamolinagarcia@gmail.com"];
@@ -75,9 +79,11 @@ function buildFamilies(attendees){
       date:(at.created||"").slice(0,10),
       purchaser:((at.profile&&at.profile.name)||"").trim(),
       email, phone:((at.profile&&at.profile.cell_phone)||"").trim(),
-      timeslot:"", emails:new Set(), attendees:[]});
+      timeslot:"", ticket:"", emails:new Set(), attendees:[]});
     const fam=orders.get(oid);
     fam.emails.add(email.toLowerCase());
+    // Ticket-class name often carries the chosen time slot (e.g. "11 AM–12 PM").
+    if(!fam.ticket && (at.ticket_class_name||"").trim()) fam.ticket=(at.ticket_class_name).trim();
     fam.attendees.push(attendeeToChild(at));
   }
   return [...orders.values()];
@@ -102,9 +108,10 @@ async function discoverEvents(token){
           // The two "Magical Day of Fun" events — split by city.
           if(n.includes("magical") && !n.includes("cary")) charlotteIds.push(ev.id);
           if(n.includes("magical") && n.includes("cary")) caryIds.push(ev.id);
-          // "We Rock the Spectrum" — its own event, running at three times, so
-          // every listing whose name mentions it (but not the Magical Day one).
-          if((n.includes("we rock") || n.includes("rock the spectrum")) && !n.includes("magical")) wrtsIds.push(ev.id);
+          // "Free Event at We Rock the Spectrum Kids Gym" — its own event, which
+          // runs at three times (either separate listings or ticket classes).
+          // Match any listing that names the gym but isn't the Magical Day event.
+          if((n.includes("we rock") || n.includes("rock the spectrum") || n.includes("spectrum kids gym")) && !n.includes("magical")) wrtsIds.push(ev.id);
         }
         pages=d.pagination?d.pagination.page_count:1;
       } while(page++<pages && page<=20);
@@ -140,7 +147,9 @@ export async function getEvents(token){
   const {charlotteIds, caryIds, wrtsIds, candidates}=await discoverEvents(token);
   const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
   const caryList=envList(process.env.EVENT_CARY)||caryIds;
-  const wrtsList=envList(process.env.EVENT_WRTS)||wrtsIds;
+  // Env override wins; otherwise use everything discovered by name plus the
+  // known listing id(s), de-duplicated, so the event always shows up.
+  const wrtsList=envList(process.env.EVENT_WRTS)||[...new Set([...wrtsIds, ...DEFAULT_WRTS_IDS])];
   if(!charList.length && !caryList.length && !wrtsList.length) throw new Error("No matching events found for this token.");
   const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
 
@@ -162,20 +171,26 @@ export async function getEvents(token){
   });
   for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
 
-  // We Rock the Spectrum — a standalone event running at three times (three
-  // Eventbrite listings). Build each listing separately so every registration
-  // is tagged with which time slot it came from, then merge them.
-  let wrtsFams=[], wrtsRawCount=0, wrtsSlots=[];
+  // "Free Event at We Rock the Spectrum Kids Gym." The three times may be three
+  // separate Eventbrite listings OR three ticket classes on one listing, so tag
+  // each registration by its ticket-class name when present, otherwise by the
+  // listing's start time. A listing we can't read is skipped, not fatal.
+  let wrtsFams=[], wrtsRawCount=0;
   for(const id of wrtsList){
-    const info=await eventInfo(id, token);
-    const slot=slotLabel(info);
-    if(slot) wrtsSlots.push({id, slot});
-    const raw=await allAttendees(id, token);
-    wrtsRawCount+=raw.length;
-    const fams=buildFamilies(raw).map(f=>{ delete f.emails;
-      return {...f, confirmed:null, count:f.attendees.length, timeslot:slot, eventId:id}; });
-    wrtsFams=wrtsFams.concat(fams);
+    try{
+      const info=await eventInfo(id, token);
+      const startSlot=slotLabel(info);
+      const raw=await allAttendees(id, token);
+      wrtsRawCount+=raw.length;
+      const fams=buildFamilies(raw).map(f=>{ const t=f.ticket; delete f.emails;
+        return {...f, confirmed:null, count:f.attendees.length, timeslot:(t||startSlot), eventId:id}; });
+      wrtsFams=wrtsFams.concat(fams);
+    }catch(_){ /* skip a listing we can't read (bad id / no access) */ }
   }
+  // Distinct time slots actually present (handles both the multi-listing and
+  // the single-listing-with-ticket-classes cases).
+  const wrtsSlots=[]; const seenS=new Set();
+  for(const f of wrtsFams){ const s=(f.timeslot||"").trim(); if(s && !seenS.has(s)){ seenS.add(s); wrtsSlots.push(s); } }
   // Union of every question asked across the event (first-seen order) so the
   // dashboard can render all questions dynamically and aggregate results.
   const wrtsQuestions=[]; const seenQ=new Set();
@@ -184,9 +199,10 @@ export async function getEvents(token){
   }
 
   const events=[];
-  if(wrtsList.length) events.push({key:"wrts",name:"We Rock the Spectrum",venue:"We Rock the Spectrum",
+  if(wrtsFams.length) events.push({key:"wrts",name:"We Rock the Spectrum",
+    venue:"Free Event · We Rock the Spectrum Kids Gym",
     hasConfirm:false, dynamic:true, questions:wrtsQuestions,
-    slots:wrtsSlots.map(s=>s.slot), families:wrtsFams});
+    slots:wrtsSlots, families:wrtsFams});
   events.push({key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams});
   events.push({key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams});
   const out={events};

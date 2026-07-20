@@ -35,11 +35,13 @@ After changing environment variables, **redeploy** for them to take effect.
 
 ### We Rock the Spectrum tab
 
-The dashboard auto-detects the **We Rock the Spectrum** event on your Eventbrite
-(any event whose name contains "we rock" / "rock the spectrum"). It runs at
-three times, which on Eventbrite are three separate listings — the dashboard
-merges all three and tags each registration with its time slot, so you can
-filter by time and see per-slot counts.
+The dashboard auto-detects the **"Free Event at We Rock the Spectrum Kids Gym"**
+event on your Eventbrite (any event whose name mentions "we rock the spectrum" /
+"spectrum kids gym"), and falls back to the known listing ID
+(`1993615746364`) if the name ever changes. Its three times may be three
+separate Eventbrite listings **or** three ticket classes on one listing — either
+way the dashboard tags each registration with its time slot, so you can filter
+by time and see per-slot counts.
 
 This tab shows **every registration question and answer** dynamically (not a
 fixed set of columns): a **Results by question** panel aggregates the answers,
