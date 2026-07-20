@@ -112,6 +112,10 @@ h1{font-family:'Libre Caslon Display',Georgia,serif;font-weight:400;font-size:cl
 .rrow .rmain{flex:1;min-width:200px;}
 .rrow .rname{font-family:'Libre Caslon Text',serif;font-weight:700;font-size:16px;color:var(--midnight);margin-right:8px;}
 .rrow .rmeta{color:var(--muted);font-size:12.5px;margin-top:3px;}
+.rkids{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.kidchip{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;}
+.kidchip.kidno{background:#fbe4de;color:var(--clay);}
+.kidchip.kidyes{background:#e3f0e6;color:#2f7d4f;}
 </style></head><body><div class="wrap">
 <div class="kicker">Above &amp; Beyond ABA Therapy &nbsp;·&nbsp; <span class="tm">care to soar&trade;</span></div>
 <h1>We Rock the Spectrum</h1>
@@ -161,8 +165,11 @@ function decisionOf(f){return decisions[famKey(f)]||'pending';}
 function setDecision(f,val){const k=famKey(f);if(val==='pending')delete decisions[k];else decisions[k]=val;
  try{localStorage.setItem(DECIDE_KEY,JSON.stringify(decisions));}catch(_){}
  refresh();}
-// A registration "needs review" when NO guest on it has an autism diagnosis (Yes).
-function needsReview(f){return !((f.attendees||[]).some(a=>(a.dx||'').toLowerCase().startsWith('yes')));}
+// A registration "needs review" when ANY child on it answered "No" to the
+// autism-diagnosis question — even if a sibling on the same order has a
+// diagnosis. Family context is kept on the card and in the review row.
+function childNoDx(a){return (a.dx||'').trim().toLowerCase().startsWith('no');}
+function needsReview(f){return (f.attendees||[]).some(childNoDx);}
 // Rejection email template (opens in the sender's mail client, editable before sending).
 function rejectEmail(f){
  const first=((f.purchaser||'there').trim().split(/\s+/)[0])||'there';
@@ -253,24 +260,29 @@ function resultsSection(e,fams){const wrap=document.getElementById('resultsWrap'
 function dynTiles(e){const s=mm(e.families);const t=[];
  let appr=0,rej=0,review=0;for(const f of e.families){const d=decisionOf(f);if(d==='approved')appr++;else if(d==='rejected')rej++;if(needsReview(f)&&d==='pending')review++;}
  t.push(['deep',s.families,'Registrations','']);t.push(['deep',s.attendees,'Total guests','']);
- t.push(['accent',review,'Needs review','no autism diagnosis']);
+ t.push(['accent',review,'Needs review','a child answered No']);
  t.push(['',appr,'Approved','']);t.push(['',rej,'Rejected','']);
  const slots=e.slots||[];const counts={};for(const f of e.families){const k=f.timeslot||'—';counts[k]=(counts[k]||0)+1;}
  for(const sl of slots)t.push(['',counts[sl]||0,sl,'registrations']);
  return t.map(x=>'<div class="tile '+x[0]+'"><div class="n">'+x[1]+'</div><div class="l">'+x[2]+'</div>'+(x[3]?'<div class="s">'+x[3]+'</div>':'')+'</div>').join('');}
-// Compact "needs review" queue — registrations with no autism diagnosis, pending first.
-function reviewRow(f,i){const dxs=(f.attendees||[]).map(a=>(a.child||'Guest')+' ('+(a.dx||'—')+')').join(', ');
+// Compact "needs review" queue — any child who answered No to autism diagnosis,
+// with the whole family kept on the row (No children highlighted).
+function reviewRow(f,i){
+ const kids=(f.attendees||[]).map(a=>{const cls=childNoDx(a)?'kidno':'kidyes';
+  return '<span class="kidchip '+cls+'">'+esc(a.child||'Guest')+' · '+esc(a.dx||'—')+'</span>';}).join('');
+ const fam=f.count>1?(f.count+' in family'):'1 guest';
  return '<div class="rrow" data-i="'+i+'"><div class="rmain"><span class="rname">'+esc(f.purchaser||'(no name)')+'</span>'+decisionBadge(f)+
-  '<div class="rmeta">✉ '+esc(f.email||'—')+(f.timeslot?' · 🕐 '+esc(f.timeslot):'')+' · '+esc(dxs||'—')+'</div></div>'+decisionControls(f)+'</div>';}
+  '<div class="rmeta">✉ '+esc(f.email||'—')+(f.timeslot?' · 🕐 '+esc(f.timeslot):'')+' · '+fam+'</div>'+
+  '<div class="rkids">'+kids+'</div></div>'+decisionControls(f)+'</div>';}
 function renderReview(e){const wrap=document.getElementById('reviewWrap');
  if(!e.dynamic){wrap.className='reviewWrap hidden';wrap.innerHTML='';return;}
  const items=e.families.map((f,i)=>({f,i})).filter(x=>needsReview(x.f));
  const pend=items.filter(x=>decisionOf(x.f)==='pending');
  const decided=items.filter(x=>decisionOf(x.f)!=='pending');
  wrap.className='reviewWrap';
- if(!items.length){wrap.innerHTML='<div class="section-h">Needs review — no autism diagnosis <span class="hint">nothing to review 🎉</span></div>';return;}
+ if(!items.length){wrap.innerHTML='<div class="section-h">Needs review — child answered No to autism diagnosis <span class="hint">nothing to review 🎉</span></div>';return;}
  const rows=[...pend,...decided].map(x=>reviewRow(x.f,x.i)).join('');
- wrap.innerHTML='<div class="section-h">Needs review — no autism diagnosis <span class="hint">'+pend.length+' awaiting a decision'+(decided.length?(' · '+decided.length+' decided'):'')+'</span></div><div class="reviewlist">'+rows+'</div>';}
+ wrap.innerHTML='<div class="section-h">Needs review — child answered No to autism diagnosis <span class="hint">'+pend.length+' awaiting a decision'+(decided.length?(' · '+decided.length+' decided'):'')+'</span></div><div class="reviewlist">'+rows+'</div>';}
 // Rebuild the current event's decision-dependent UI without resetting filters.
 function refresh(){const e=EV[cur];
  document.getElementById('tiles').innerHTML=e.dynamic?dynTiles(e):tiles(e);
@@ -358,7 +370,7 @@ function emailFamilies(onlyPending){const e=EV[cur];const seen=new Set();const e
  window.location.href=href;}
 document.getElementById('emailPending').addEventListener('click',()=>emailFamilies(true));
 document.getElementById('emailAll').addEventListener('click',()=>emailFamilies(false));
-document.getElementById('note').innerHTML='<b>Good to know:</b> Registrations with <b>no autism diagnosis</b> are collected in the <b>Needs review</b> section up top — approve or reject each one, or use the Approve/Reject buttons on any registration. Clicking <b>Reject</b> opens a ready-to-send email letting that family know the event is for the autism community. Decisions are saved in this browser.';
+document.getElementById('note').innerHTML='<b>Good to know:</b> Any registration where <b>a child answered “No”</b> to the autism-diagnosis question is collected in the <b>Needs review</b> section up top — the whole family stays on the card so you can see siblings and their answers. Approve or reject each one. Clicking <b>Reject</b> opens a ready-to-send email letting that family know the event is for the autism community. Decisions are saved in this browser.';
 function setStatus(cls,txt){const s=document.getElementById('status');s.className='status '+cls;document.getElementById('statusText').textContent=txt;}
 draw();
 // Try live Eventbrite data; fall back silently to the embedded snapshot.
