@@ -7,7 +7,7 @@
 // Otherwise it runs in PREVIEW mode: it reports who it *would* email and sends nothing.
 //
 // Required env vars: EVENTBRITE_TOKEN, CRON_SECRET, RESEND_API_KEY,
-//   EVENT_CHARLOTTE_DATE / EVENT_CARY_DATE (YYYY-MM-DD), REMINDERS_LIVE.
+//   EVENT_WRTS_DATE (YYYY-MM-DD), REMINDERS_LIVE.
 // Optional: REMINDER_OFFSETS (default "2,0" = 2 days before + day-of),
 //   REMINDER_FROM (default "Above & Beyond ABA <reminders@abtaba.com>").
 
@@ -15,7 +15,7 @@ import { getEvents } from "./attendees.js";
 
 const OFFSETS = (process.env.REMINDER_OFFSETS || "2,0").split(",").map(n => parseInt(n, 10)).filter(n => !isNaN(n));
 const FROM = process.env.REMINDER_FROM || "Above & Beyond ABA <reminders@abtaba.com>";
-const EVENT_DATE = { charlotte: process.env.EVENT_CHARLOTTE_DATE, cary: process.env.EVENT_CARY_DATE };
+const EVENT_DATE = { wrts: process.env.EVENT_WRTS_DATE };
 
 function authorized(req){
   const secret = process.env.CRON_SECRET;
@@ -39,7 +39,7 @@ export default async function handler(req, res){
   if(!token) return res.status(400).json({error:"No EVENTBRITE_TOKEN set"});
 
   const q = req.query || {};
-  const which = (q.event || "charlotte").toLowerCase();     // charlotte | cary | all
+  const which = (q.event || "wrts").toLowerCase();          // wrts | all
   const audience = (q.audience || "pending").toLowerCase(); // pending | all
   const force = q.force === "1" || q.force === "true";       // bypass the date gate (manual testing)
   const apiKey = process.env.RESEND_API_KEY;

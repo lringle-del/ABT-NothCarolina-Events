@@ -10,11 +10,10 @@ const TEST_EMAILS = new Set([
   "kristen.porras@powerdigitalmarketinginc.com"
 ]);
 const isTest = e => TEST_EMAILS.has((e||"").trim().toLowerCase());
-
-// Static data not held in Eventbrite: Charlotte confirmations + Cary form families.
-const CONFIRMED_EMAILS = ["asanthoshsagar@outlook.com", "bmsmall19@yahoo.com", "jasminebratton9023@gmail.com", "ms.s.burns@gmail.com", "nturner1st@gmail.com", "shakethacrawford@yahoo.com", "slouther@gmail.com", "swathi.gujjari9@gmail.com", "tfedwards85@gmail.com", "thebestofthebest24@gmail.com", "tuliamolinagarcia@gmail.com"];
-const CARY_FORM_FAMILIES = [{"source": "Microsoft Form", "order": "Form #6", "date": "2026-06-19", "purchaser": "Monica Orellana", "email": "Moniyi80@gmail.com", "phone": "6464201430", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "Mateo", "age": "10", "dx": "Yes", "aba": "No", "looking": "No", "gain": "Information", "haircut": "Yes"}, {"child": "Joseph", "age": "2", "dx": "Yes", "aba": "No", "looking": "I am exploring options", "gain": "Information", "haircut": "Yes"}], "confirmed": null, "count": 2}, {"source": "Microsoft Form", "order": "Form #7", "date": "2026-07-09", "purchaser": "Jolanda Dixon", "email": "jolandadixon26@gmail.com", "phone": "9843014726", "timeslot": "1:00 PM-2:00 PM", "attendees": [{"child": "Jaxyn Dixon", "age": "10", "dx": "Yes", "aba": "No", "looking": "No", "gain": "Mingling", "haircut": "No"}], "confirmed": null, "count": 1}, {"source": "Microsoft Form", "order": "Form #8", "date": "2026-07-11", "purchaser": "Aldabbagh", "email": "mustafasaad88@gmail.com", "phone": "9195239459", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "Taim Aldabbagh", "age": "11", "dx": "No", "aba": "No", "looking": "No", "gain": "Learning", "haircut": "Yes"}, {"child": "Jad Aldabbagh", "age": "4", "dx": "No", "aba": "No", "looking": "No", "gain": "Learning", "haircut": "Yes"}], "confirmed": null, "count": 2}, {"source": "Microsoft Form", "order": "Form #9", "date": "2026-07-14", "purchaser": "Vidhyabharathi Janarthanan", "email": "j.vidhyabharathi@gmail.com", "phone": "9379792092", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "Rudran", "age": "8", "dx": "Yes", "aba": "No", "looking": "No", "gain": "Just explore if anything would be suitable for the child", "haircut": "No"}], "confirmed": null, "count": 1}, {"source": "Microsoft Form", "order": "Form #10", "date": "2026-07-15", "purchaser": "Migdalis Clemmons", "email": "dmclemmons@hotmail.com", "phone": "9196568872", "timeslot": "1:00 PM-2:00 PM", "attendees": [{"child": "Ruby", "age": "6", "dx": "Yes", "aba": "No", "looking": "I am exploring options", "gain": "Different options", "haircut": "Yes"}], "confirmed": null, "count": 1}];
-const CHARLOTTE_FORM_FAMILIES = [{"source": "Microsoft Form", "order": "Form #2", "date": "2026-05-22", "purchaser": "Rhonda Fernandez", "email": "rhonda.fernandez@stepstoneyouth.com", "phone": "704-351-8336", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "I am a community partner with StepStone Family and Youth Services", "age": "Not bringing a child. I will attend alone as a community partner.", "dx": "", "aba": "", "looking": "", "gain": "Tour your facilities", "haircut": "No"}], "confirmed": null, "count": 1}, {"source": "Microsoft Form", "order": "Form #3", "date": "2026-06-08", "purchaser": "Tammyfaye Gillespie", "email": "Tfedwards85@gmail.com", "phone": "980-307-9177", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "Jermaine Gillespie Jr", "age": "9", "dx": "In the process of getting diagnosed", "aba": "No", "looking": "I am exploring options", "gain": "Behavioral, learning and socializing challenges", "haircut": "No"}, {"child": "Jayceon Gillespie", "age": "7", "dx": "In the process of getting diagnosed", "aba": "No", "looking": "I am exploring options", "gain": "Behavioral, learning and socializing challenges", "haircut": "No"}], "confirmed": null, "count": 2}, {"source": "Microsoft Form", "order": "Form #4", "date": "2026-06-08", "purchaser": "Nicole Logan", "email": "Kleenish26@yahoo.com", "phone": "704-606-3983", "timeslot": "12:00 PM-1:00 PM", "attendees": [{"child": "Lauryn Redfearn", "age": "9", "dx": "No", "aba": "No", "looking": "No", "gain": "No", "haircut": "No"}], "confirmed": null, "count": 1}, {"source": "Microsoft Form", "order": "Form #5", "date": "2026-06-12", "purchaser": "Manal Bachan", "email": "sabahbachan169@gmail.com", "phone": "7047705675", "timeslot": "1:00 PM-2:00 PM", "attendees": [{"child": "Abdulmohsen", "age": "9 years", "dx": "No", "aba": "No", "looking": "", "gain": "Learning new stuff", "haircut": "Yes"}], "confirmed": null, "count": 1}, {"source": "Microsoft Form", "order": "Form #6", "date": "2026-06-24", "purchaser": "Elizabeth Almendarez", "email": "liz.zylizz@icloud.com", "phone": "9807292124", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "Leslie", "age": "6", "dx": "Yes", "aba": "Previously received", "looking": "No", "gain": "Feel comfortable where My daughter can be herself and won’t be judged for having autism and she can enjoy herself", "haircut": "No"}, {"child": "Isabella", "age": "9", "dx": "No", "aba": "No", "looking": "No", "gain": "Feel comfortable where My daughter can be herself and won’t be judged for having autism and she can enjoy herself", "haircut": "No"}], "confirmed": null, "count": 2}, {"source": "Microsoft Form", "order": "Form #7", "date": "2026-06-25", "purchaser": "Givens", "email": "Emilysgivens@gmail.com", "phone": "704-281-2529", "timeslot": "1:00 PM-2:00 PM", "attendees": [{"child": "Emryn", "age": "11", "dx": "No", "aba": "No", "looking": "No", "gain": "Family love and understanding", "haircut": "Yes"}, {"child": "Breylin Givens", "age": "18", "dx": "No", "aba": "No", "looking": "No", "gain": "Family love and understanding", "haircut": "No"}], "confirmed": null, "count": 2}, {"source": "Microsoft Form", "order": "Form #8", "date": "2026-07-06", "purchaser": "Brittany Ridenhour", "email": "Bmsmall19@yahoo.com", "phone": "7046394003", "timeslot": "12:00 PM-1:00 PM", "attendees": [{"child": "Deagan Ridenhour", "age": "4", "dx": "Yes", "aba": "Yes", "looking": "No", "gain": "Learning experiences", "haircut": "Yes"}, {"child": "Destry Ridenhour", "age": "6", "dx": "No", "aba": "No", "looking": "No", "gain": "Learning experiences", "haircut": "Yes"}, {"child": "Dutton Ridenhour", "age": "2", "dx": "No", "aba": "No", "looking": "No", "gain": "Learning experiences", "haircut": "No"}], "confirmed": null, "count": 3}, {"source": "Microsoft Form", "order": "Form #9", "date": "2026-07-09", "purchaser": "Erricka Edmonds", "email": "errickadbrooks@gmail.com", "phone": "4043234188", "timeslot": "11:00 AM-12:00 PM", "attendees": [{"child": "Todd Edmonds", "age": "7", "dx": "Yes", "aba": "Yes", "looking": "I am exploring options", "gain": "Learn more about this company", "haircut": "Yes"}, {"child": "Taylor Edmonds", "age": "9", "dx": "No", "aba": "No", "looking": "No", "gain": "Learn more about this company", "haircut": "No"}], "confirmed": null, "count": 2}, {"source": "Microsoft Form", "order": "Form #10", "date": "2026-07-15", "purchaser": "Kimberly spencer", "email": "Kim.Spencer42@yahoo.com", "phone": "9432887751", "timeslot": "12:00 PM-1:00 PM", "attendees": [{"child": "Ava brown", "age": "7", "dx": "Yes", "aba": "Yes", "looking": "No", "gain": "My daughter is already a member at above and beyond aba", "haircut": "No"}, {"child": "Kha’mari green", "age": "7", "dx": "No", "aba": "No", "looking": "No", "gain": "My daughter is already a member at above and beyond aba", "haircut": "Yes"}, {"child": "Addisyn spencer", "age": "2", "dx": "No", "aba": "No", "looking": "No", "gain": "My daughter is already a member at above and beyond aba", "haircut": "No"}], "confirmed": null, "count": 3}, {"source": "Microsoft Form", "order": "Form #11", "date": "2026-07-17", "purchaser": "Razan Sirriyeh", "email": "Srrazan9@gmail.com", "phone": "9803953013", "timeslot": "12:00 PM-1:00 PM", "attendees": [{"child": "Zaina Alhawamleh", "age": "7", "dx": "Yes", "aba": "Yes", "looking": "No", "gain": "To explore and learn and have fun time with my two kids and to meet and learn from other parents of children of autism.", "haircut": "No"}, {"child": "Ibrahim Alhawamleh", "age": "5", "dx": "No", "aba": "No", "looking": "No", "gain": "To explore and learn and have fun time with my two kids and to meet and learn from other parents of children of autism.", "haircut": "Yes"}], "confirmed": null, "count": 2}];
+// Known "Free Event at We Rock the Spectrum Kids Gym" listing(s). Used as a
+// fallback so the tab works even if name-based discovery misses it. Override
+// entirely with the EVENT_WRTS env var (comma-separated ids).
+const DEFAULT_WRTS_IDS = ["1993615746364"];
 
 function h(t){ return { Authorization: `Bearer ${t}` }; }
 async function ebGet(path, token, params={}){
@@ -58,7 +57,10 @@ function attendeeToChild(at){
     aba: findAnswer(ans,["receiving","aba"]),
     looking: findAnswer(ans,["looking","aba"]),
     gain: findAnswer(ans,["gain"]) || findAnswer(ans,["get","out","event"]),
-    haircut: findAnswer(ans,["haircut"])
+    haircut: findAnswer(ans,["haircut"]),
+    // Every question/answer on this registration, verbatim (drives the
+    // "all questions" dynamic view). Blank questions are skipped.
+    qa: (ans||[]).map(a=>({q:(a.question||"").trim(), a:(a.answer||"").trim()})).filter(x=>x.q)
   };
 }
 function buildFamilies(attendees){
@@ -72,18 +74,20 @@ function buildFamilies(attendees){
       date:(at.created||"").slice(0,10),
       purchaser:((at.profile&&at.profile.name)||"").trim(),
       email, phone:((at.profile&&at.profile.cell_phone)||"").trim(),
-      timeslot:"", emails:new Set(), attendees:[]});
+      timeslot:"", ticket:"", emails:new Set(), attendees:[]});
     const fam=orders.get(oid);
     fam.emails.add(email.toLowerCase());
+    // Ticket-class name often carries the chosen time slot (e.g. "11 AM–12 PM").
+    if(!fam.ticket && (at.ticket_class_name||"").trim()) fam.ticket=(at.ticket_class_name).trim();
     fam.attendees.push(attendeeToChild(at));
   }
   return [...orders.values()];
 }
 async function discoverEvents(token){
-  // There can be several similarly-named events (a Charlotte "Magical Day" AND
-  // a Cary "Magical Day", plus multiple "We Rock the Spectrum" time slots), so
-  // collect ALL matching ids per event rather than just the first.
-  const charlotteIds=[], caryIds=[], candidates=[];
+  // Find the "Free Event at We Rock the Spectrum Kids Gym" event. It runs at
+  // three times, which on Eventbrite may be three separate listings or three
+  // ticket classes on one listing, so collect ALL matching ids.
+  const wrtsIds=[], candidates=[];
   try{
     const me=await ebGet(`/users/me/organizations/`, token);
     for(const org of me.organizations||[]){
@@ -94,60 +98,77 @@ async function discoverEvents(token){
         for(const ev of d.events||[]){
           const name=((ev.name&&ev.name.text)||"");
           const n=name.toLowerCase();
-          candidates.push({id:ev.id, name, status:ev.status});
-          // Both events are "Magical Day of Fun" — split by city.
-          // (The separate "We Rock the Spectrum" events are intentionally ignored.)
-          if(n.includes("magical") && !n.includes("cary")) charlotteIds.push(ev.id);
-          if(n.includes("magical") && n.includes("cary")) caryIds.push(ev.id);
+          candidates.push({id:ev.id, name, status:ev.status, start:(ev.start&&ev.start.local)||""});
+          // Match any listing that names the gym / "we rock the spectrum".
+          if(n.includes("we rock") || n.includes("rock the spectrum") || n.includes("spectrum kids gym")) wrtsIds.push(ev.id);
         }
         pages=d.pagination?d.pagination.page_count:1;
       } while(page++<pages && page<=20);
     }
   }catch(e){}
-  return {charlotteIds, caryIds, candidates};
+  return {wrtsIds, candidates};
 }
-// Fetch and merge attendees across a list of event ids.
-async function attendeesForAll(idList, token){
-  let raw=[];
-  for(const id of idList) raw = raw.concat(await allAttendees(id, token));
-  return raw;
+// Human-readable time-slot label for a single event listing (e.g. its start).
+function slotLabel(info){
+  const s=(info&&info.start)||"";
+  const m=s.match(/T(\d{2}):(\d{2})/);
+  let time="";
+  if(m){ let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12||12; time=`${h}:${m[2].padStart(2,"0")} ${ap}`; }
+  const day=s.slice(0,10);
+  if(day && time) return `${day} · ${time}`;
+  return (info&&info.name)||day||"";
 }
-
+async function eventInfo(id, token){
+  try{ const e=await ebGet(`/events/${id}/`, token);
+    return {id, name:(e.name&&e.name.text)||"", start:(e.start&&e.start.local)||""}; }
+  catch(_){ return {id, name:"", start:""}; }
+}
 // Build the full events payload (shared by the dashboard API and the reminder mailer).
 export async function getEvents(token){
   const envList=v=>v?String(v).split(",").map(s=>s.trim()).filter(Boolean):null;
-  const {charlotteIds, caryIds, candidates}=await discoverEvents(token);
-  const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
-  const caryList=envList(process.env.EVENT_CARY)||caryIds;
-  if(!charList.length && !caryList.length) throw new Error("No matching events found for this token.");
-  const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
+  const {wrtsIds, candidates}=await discoverEvents(token);
+  // Env override wins; otherwise use everything discovered by name plus the
+  // known listing id(s), de-duplicated, so the event always shows up.
+  const wrtsList=envList(process.env.EVENT_WRTS)||[...new Set([...wrtsIds, ...DEFAULT_WRTS_IDS])];
+  if(!wrtsList.length) throw new Error("No matching events found for this token.");
 
-  const charRaw=await attendeesForAll(charList,token);
-  const charFams=buildFamilies(charRaw).map(f=>{
-    const c=[...f.emails].some(e=>confirmed.has(e)); delete f.emails;
-    return {...f, confirmed:c, count:f.attendees.length};
-  });
-  // Charlotte families who registered via the Microsoft Form (not Eventbrite).
-  const charEbEmails=new Set(charFams.map(f=>(f.email||"").toLowerCase()));
-  for(const ff of CHARLOTTE_FORM_FAMILIES){
-    if(isTest(ff.email)) continue;
-    if(charEbEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
-    charFams.push({...ff, confirmed:confirmed.has((ff.email||"").toLowerCase()), count:(ff.attendees||[]).length});
+  // "Free Event at We Rock the Spectrum Kids Gym." The three times may be three
+  // separate Eventbrite listings OR three ticket classes on one listing, so tag
+  // each registration by its ticket-class name when present, otherwise by the
+  // listing's start time. A listing we can't read is skipped, not fatal.
+  let wrtsFams=[], wrtsRawCount=0;
+  for(const id of wrtsList){
+    try{
+      const info=await eventInfo(id, token);
+      const startSlot=slotLabel(info);
+      const raw=await allAttendees(id, token);
+      wrtsRawCount+=raw.length;
+      const fams=buildFamilies(raw).map(f=>{ const t=f.ticket; delete f.emails;
+        return {...f, confirmed:null, count:f.attendees.length, timeslot:(t||startSlot), eventId:id}; });
+      wrtsFams=wrtsFams.concat(fams);
+    }catch(_){ /* skip a listing we can't read (bad id / no access) */ }
   }
-  const caryRaw=await attendeesForAll(caryList,token);
-  const caryFams=buildFamilies(caryRaw).map(f=>{
-    delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
-  });
-  for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
+  // Distinct time slots actually present (handles both the multi-listing and
+  // the single-listing-with-ticket-classes cases).
+  const wrtsSlots=[]; const seenS=new Set();
+  for(const f of wrtsFams){ const s=(f.timeslot||"").trim(); if(s && !seenS.has(s)){ seenS.add(s); wrtsSlots.push(s); } }
+  // Union of every question asked across the event (first-seen order) so the
+  // dashboard can render all questions dynamically and aggregate results.
+  const wrtsQuestions=[]; const seenQ=new Set();
+  for(const f of wrtsFams) for(const at of f.attendees) for(const {q} of (at.qa||[])){
+    if(q && !seenQ.has(q)){ seenQ.add(q); wrtsQuestions.push(q); }
+  }
 
-  const out={events:[
-    {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
-    {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
-  ]};
+  const events=[];
+  if(wrtsFams.length) events.push({key:"wrts",name:"We Rock the Spectrum",
+    venue:"Free Event · We Rock the Spectrum Kids Gym",
+    hasConfirm:false, dynamic:true, questions:wrtsQuestions,
+    slots:wrtsSlots, families:wrtsFams});
+  const out={events};
   return {out, dbg:{
-    charlotteIds:charList, caryIds:caryList,
-    charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
-    caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
+    wrtsIds:wrtsList,
+    wrtsAttendeesFetched:wrtsRawCount, wrtsFamilies:wrtsFams.length,
+    wrtsQuestions:wrtsQuestions.length, wrtsSlots,
     candidates
   }};
 }
