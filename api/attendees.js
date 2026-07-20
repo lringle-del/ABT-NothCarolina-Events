@@ -113,55 +113,55 @@ async function attendeesForAll(idList, token){
   return raw;
 }
 
+// Build the full events payload (shared by the dashboard API and the reminder mailer).
+export async function getEvents(token){
+  const envList=v=>v?String(v).split(",").map(s=>s.trim()).filter(Boolean):null;
+  const {charlotteIds, caryIds, candidates}=await discoverEvents(token);
+  const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
+  const caryList=envList(process.env.EVENT_CARY)||caryIds;
+  if(!charList.length && !caryList.length) throw new Error("No matching events found for this token.");
+  const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
+
+  const charRaw=await attendeesForAll(charList,token);
+  const charFams=buildFamilies(charRaw).map(f=>{
+    const c=[...f.emails].some(e=>confirmed.has(e)); delete f.emails;
+    return {...f, confirmed:c, count:f.attendees.length};
+  });
+  // Charlotte families who registered via the Microsoft Form (not Eventbrite).
+  const charEbEmails=new Set(charFams.map(f=>(f.email||"").toLowerCase()));
+  for(const ff of CHARLOTTE_FORM_FAMILIES){
+    if(isTest(ff.email)) continue;
+    if(charEbEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
+    charFams.push({...ff, confirmed:confirmed.has((ff.email||"").toLowerCase()), count:(ff.attendees||[]).length});
+  }
+  const caryRaw=await attendeesForAll(caryList,token);
+  const caryFams=buildFamilies(caryRaw).map(f=>{
+    delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
+  });
+  for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
+
+  const out={events:[
+    {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
+    {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
+  ]};
+  return {out, dbg:{
+    charlotteIds:charList, caryIds:caryList,
+    charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
+    caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
+    candidates
+  }};
+}
+
 export default async function handler(req,res){
   const debug = req.query && req.query.debug;
   const token = process.env.EVENTBRITE_TOKEN;
   if(!token) return res.status(200).json(meta(null,false,"No EVENTBRITE_TOKEN set yet.",debug));
-  let candidates=[], charlotteIds=[], caryIds=[];
-  const envList=v=>v?String(v).split(",").map(s=>s.trim()).filter(Boolean):null;
   try{
-    ({charlotteIds, caryIds, candidates}=await discoverEvents(token));
-    // Env vars (comma-separated ids) override auto-discovery when set.
-    const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
-    const caryList=envList(process.env.EVENT_CARY)||caryIds;
-    if(!charList.length && !caryList.length) throw new Error("No matching events found for this token.");
-    const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
-
-    const charRaw=await attendeesForAll(charList,token);
-    const charFams=buildFamilies(charRaw).map(f=>{
-      const c=[...f.emails].some(e=>confirmed.has(e)); delete f.emails;
-      return {...f, confirmed:c, count:f.attendees.length};
-    });
-    // Charlotte families who registered via the Microsoft Form (not Eventbrite).
-    const charEbEmails=new Set(charFams.map(f=>(f.email||"").toLowerCase()));
-    for(const ff of CHARLOTTE_FORM_FAMILIES){
-      if(isTest(ff.email)) continue;
-      if(charEbEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
-      charFams.push({...ff, confirmed:confirmed.has((ff.email||"").toLowerCase()), count:(ff.attendees||[]).length});
-    }
-    const caryRaw=await attendeesForAll(caryList,token);
-    const caryFams=buildFamilies(caryRaw).map(f=>{
-      delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
-    });
-    for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
-
-    const out={events:[
-      {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
-      {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
-    ]};
+    const {out, dbg}=await getEvents(token);
     res.setHeader("Cache-Control","s-maxage=30, stale-while-revalidate=60");
-    return res.status(200).json(meta(out,true,null,debug,{
-      charlotteIds:charList, caryIds:caryList,
-      charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
-      caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
-      candidates
-    }));
+    return res.status(200).json(meta(out,true,null,debug,dbg));
   }catch(err){
-    return res.status(200).json(meta(null,false,String(err&&err.message||err),debug,{
-      charlotteIds:envList(process.env.EVENT_CHARLOTTE)||charlotteIds,
-      caryIds:envList(process.env.EVENT_CARY)||caryIds,
-      candidates
-    }));
+    return res.status(200).json(meta(null,false,String(err&&err.message||err),debug,{}));
   }
 }
 function meta(data,live,message,debug,extra){

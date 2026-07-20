@@ -32,6 +32,36 @@ Once disabled, anyone with the link can view the dashboard — no login needed.
 
 After changing environment variables, **redeploy** for them to take effect.
 
+## Automated reminder emails
+
+A daily Vercel Cron hits `/api/send-reminders`, which emails registrants via
+[Resend](https://resend.com). It is **safe by default** — it only sends when
+ALL of these are true, otherwise it runs in preview mode (sends nothing and
+just reports who it would email):
+
+1. Caller is authorized (`CRON_SECRET`)
+2. `RESEND_API_KEY` is set
+3. `REMINDERS_LIVE` = `1`  ← the master "go live" switch
+4. Today is a reminder day for that event (2 days before + day-of by default)
+
+### Env vars (Vercel → Settings → Environment Variables)
+
+| Variable               | Purpose                                                        |
+| ---------------------- | ------------------------------------------------------------- |
+| `CRON_SECRET`          | Any long random string; authorizes the cron / manual calls.   |
+| `RESEND_API_KEY`       | From resend.com. Enables sending.                             |
+| `REMINDERS_LIVE`       | Set to `1` only when you're ready for real emails to go out.   |
+| `EVENT_CHARLOTTE_DATE` | Charlotte event date, `YYYY-MM-DD`.                           |
+| `EVENT_CARY_DATE`      | Cary event date, `YYYY-MM-DD`.                               |
+| `REMINDER_OFFSETS`     | (optional) days-before to send, e.g. `3,1,0`. Default `2,0`.  |
+| `REMINDER_FROM`        | (optional) From address. Default `reminders@abtaba.com`.      |
+
+### Preview it before going live
+
+Open (while logged in):
+`/api/send-reminders?event=charlotte&audience=pending&key=YOUR_CRON_SECRET&force=1`
+It lists exactly who would be emailed. When happy, set `REMINDERS_LIVE=1`.
+
 ## Local / structure notes
 
 - `index.html` — the dashboard UI; fetches `/api/attendees`.

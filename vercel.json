@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/send-reminders?event=charlotte&audience=pending", "schedule": "0 13 * * *" },
+    { "path": "/api/send-reminders?event=cary&audience=pending", "schedule": "0 13 * * *" }
+  ]
+}
