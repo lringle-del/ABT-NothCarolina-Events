@@ -3,7 +3,13 @@
 // EVENTBRITE_TOKEN and is never sent to the browser.
 
 const BASE = "https://www.eventbriteapi.com/v3";
-const TEST_EMAIL = "lringle@abtaba.com";
+// Test / non-attendee registrations to exclude from every count.
+const TEST_EMAILS = new Set([
+  "lringle@abtaba.com",
+  "david@stradg.com",
+  "kristen.porras@powerdigitalmarketinginc.com"
+]);
+const isTest = e => TEST_EMAILS.has((e||"").trim().toLowerCase());
 
 // Static data not held in Eventbrite: Charlotte confirmations + Cary form families.
 const CONFIRMED_EMAILS = ["asanthoshsagar@outlook.com", "bmsmall19@yahoo.com", "ms.s.burns@gmail.com", "nturner1st@gmail.com", "shakethacrawford@yahoo.com", "slouther@gmail.com", "swathi.gujjari9@gmail.com", "tfedwards85@gmail.com", "thebestofthebest24@gmail.com", "tuliamolinagarcia@gmail.com"];
@@ -60,7 +66,7 @@ function buildFamilies(attendees){
   for(const at of attendees){
     if(at.cancelled||at.refunded) continue;
     const email=((at.profile&&at.profile.email)||"").trim();
-    if(email.toLowerCase()===TEST_EMAIL) continue;
+    if(isTest(email)) continue;
     const oid=String(at.order_id||at.id);
     if(!orders.has(oid)) orders.set(oid,{source:"Eventbrite",order:oid,
       date:(at.created||"").slice(0,10),
@@ -129,6 +135,7 @@ export default async function handler(req,res){
     // Charlotte families who registered via the Microsoft Form (not Eventbrite).
     const charEbEmails=new Set(charFams.map(f=>(f.email||"").toLowerCase()));
     for(const ff of CHARLOTTE_FORM_FAMILIES){
+      if(isTest(ff.email)) continue;
       if(charEbEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
       charFams.push({...ff, confirmed:confirmed.has((ff.email||"").toLowerCase()), count:(ff.attendees||[]).length});
     }
@@ -136,7 +143,7 @@ export default async function handler(req,res){
     const caryFams=buildFamilies(caryRaw).map(f=>{
       delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
     });
-    for(const ff of CARY_FORM_FAMILIES) caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length});
+    for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
 
     const out={events:[
       {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
