@@ -58,7 +58,10 @@ function attendeeToChild(at){
     aba: findAnswer(ans,["receiving","aba"]),
     looking: findAnswer(ans,["looking","aba"]),
     gain: findAnswer(ans,["gain"]) || findAnswer(ans,["get","out","event"]),
-    haircut: findAnswer(ans,["haircut"])
+    haircut: findAnswer(ans,["haircut"]),
+    // Every question/answer on this registration, verbatim (drives the
+    // "all questions" dynamic view). Blank questions are skipped.
+    qa: (ans||[]).map(a=>({q:(a.question||"").trim(), a:(a.answer||"").trim()})).filter(x=>x.q)
   };
 }
 function buildFamilies(attendees){
@@ -81,9 +84,10 @@ function buildFamilies(attendees){
 }
 async function discoverEvents(token){
   // There can be several similarly-named events (a Charlotte "Magical Day" AND
-  // a Cary "Magical Day", plus multiple "We Rock the Spectrum" time slots), so
-  // collect ALL matching ids per event rather than just the first.
-  const charlotteIds=[], caryIds=[], candidates=[];
+  // a Cary "Magical Day", plus the "We Rock the Spectrum" event which runs at
+  // three different times = three Eventbrite listings), so collect ALL matching
+  // ids per event rather than just the first.
+  const charlotteIds=[], caryIds=[], wrtsIds=[], candidates=[];
   try{
     const me=await ebGet(`/users/me/organizations/`, token);
     for(const org of me.organizations||[]){
@@ -94,17 +98,34 @@ async function discoverEvents(token){
         for(const ev of d.events||[]){
           const name=((ev.name&&ev.name.text)||"");
           const n=name.toLowerCase();
-          candidates.push({id:ev.id, name, status:ev.status});
-          // Both events are "Magical Day of Fun" — split by city.
-          // (The separate "We Rock the Spectrum" events are intentionally ignored.)
+          candidates.push({id:ev.id, name, status:ev.status, start:(ev.start&&ev.start.local)||""});
+          // The two "Magical Day of Fun" events — split by city.
           if(n.includes("magical") && !n.includes("cary")) charlotteIds.push(ev.id);
           if(n.includes("magical") && n.includes("cary")) caryIds.push(ev.id);
+          // "We Rock the Spectrum" — its own event, running at three times, so
+          // every listing whose name mentions it (but not the Magical Day one).
+          if((n.includes("we rock") || n.includes("rock the spectrum")) && !n.includes("magical")) wrtsIds.push(ev.id);
         }
         pages=d.pagination?d.pagination.page_count:1;
       } while(page++<pages && page<=20);
     }
   }catch(e){}
-  return {charlotteIds, caryIds, candidates};
+  return {charlotteIds, caryIds, wrtsIds, candidates};
+}
+// Human-readable time-slot label for a single event listing (e.g. its start).
+function slotLabel(info){
+  const s=(info&&info.start)||"";
+  const m=s.match(/T(\d{2}):(\d{2})/);
+  let time="";
+  if(m){ let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12||12; time=`${h}:${m[2].padStart(2,"0")} ${ap}`; }
+  const day=s.slice(0,10);
+  if(day && time) return `${day} · ${time}`;
+  return (info&&info.name)||day||"";
+}
+async function eventInfo(id, token){
+  try{ const e=await ebGet(`/events/${id}/`, token);
+    return {id, name:(e.name&&e.name.text)||"", start:(e.start&&e.start.local)||""}; }
+  catch(_){ return {id, name:"", start:""}; }
 }
 // Fetch and merge attendees across a list of event ids.
 async function attendeesForAll(idList, token){
@@ -116,10 +137,11 @@ async function attendeesForAll(idList, token){
 // Build the full events payload (shared by the dashboard API and the reminder mailer).
 export async function getEvents(token){
   const envList=v=>v?String(v).split(",").map(s=>s.trim()).filter(Boolean):null;
-  const {charlotteIds, caryIds, candidates}=await discoverEvents(token);
+  const {charlotteIds, caryIds, wrtsIds, candidates}=await discoverEvents(token);
   const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
   const caryList=envList(process.env.EVENT_CARY)||caryIds;
-  if(!charList.length && !caryList.length) throw new Error("No matching events found for this token.");
+  const wrtsList=envList(process.env.EVENT_WRTS)||wrtsIds;
+  if(!charList.length && !caryList.length && !wrtsList.length) throw new Error("No matching events found for this token.");
   const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
 
   const charRaw=await attendeesForAll(charList,token);
@@ -140,14 +162,40 @@ export async function getEvents(token){
   });
   for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
 
-  const out={events:[
-    {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
-    {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
-  ]};
+  // We Rock the Spectrum — a standalone event running at three times (three
+  // Eventbrite listings). Build each listing separately so every registration
+  // is tagged with which time slot it came from, then merge them.
+  let wrtsFams=[], wrtsRawCount=0, wrtsSlots=[];
+  for(const id of wrtsList){
+    const info=await eventInfo(id, token);
+    const slot=slotLabel(info);
+    if(slot) wrtsSlots.push({id, slot});
+    const raw=await allAttendees(id, token);
+    wrtsRawCount+=raw.length;
+    const fams=buildFamilies(raw).map(f=>{ delete f.emails;
+      return {...f, confirmed:null, count:f.attendees.length, timeslot:slot, eventId:id}; });
+    wrtsFams=wrtsFams.concat(fams);
+  }
+  // Union of every question asked across the event (first-seen order) so the
+  // dashboard can render all questions dynamically and aggregate results.
+  const wrtsQuestions=[]; const seenQ=new Set();
+  for(const f of wrtsFams) for(const at of f.attendees) for(const {q} of (at.qa||[])){
+    if(q && !seenQ.has(q)){ seenQ.add(q); wrtsQuestions.push(q); }
+  }
+
+  const events=[];
+  if(wrtsList.length) events.push({key:"wrts",name:"We Rock the Spectrum",venue:"We Rock the Spectrum",
+    hasConfirm:false, dynamic:true, questions:wrtsQuestions,
+    slots:wrtsSlots.map(s=>s.slot), families:wrtsFams});
+  events.push({key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams});
+  events.push({key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams});
+  const out={events};
   return {out, dbg:{
-    charlotteIds:charList, caryIds:caryList,
+    charlotteIds:charList, caryIds:caryList, wrtsIds:wrtsList,
     charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
     caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
+    wrtsAttendeesFetched:wrtsRawCount, wrtsFamilies:wrtsFams.length,
+    wrtsQuestions:wrtsQuestions.length, wrtsSlots,
     candidates
   }};
 }

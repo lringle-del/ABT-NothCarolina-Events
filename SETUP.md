@@ -29,8 +29,51 @@ Once disabled, anyone with the link can view the dashboard — no login needed.
 | `EVENTBRITE_TOKEN`  | Yes      | Private Eventbrite API token. Server-side only; never exposed. |
 | `EVENT_CHARLOTTE`   | Optional | Charlotte Eventbrite event ID (otherwise auto-discovered).     |
 | `EVENT_CARY`        | Optional | Cary Eventbrite event ID (otherwise auto-discovered).          |
+| `EVENT_WRTS`        | Optional | We Rock the Spectrum event IDs, **comma-separated** (one per time slot). Otherwise auto-discovered by name. |
 
 After changing environment variables, **redeploy** for them to take effect.
+
+### We Rock the Spectrum tab
+
+The dashboard auto-detects the **We Rock the Spectrum** event on your Eventbrite
+(any event whose name contains "we rock" / "rock the spectrum"). It runs at
+three times, which on Eventbrite are three separate listings — the dashboard
+merges all three and tags each registration with its time slot, so you can
+filter by time and see per-slot counts.
+
+This tab shows **every registration question and answer** dynamically (not a
+fixed set of columns): a **Results by question** panel aggregates the answers,
+and each registration expands to show the full Q&A per guest.
+
+If auto-discovery ever grabs the wrong events (or misses one), open
+`/api/attendees?debug=1` — the `candidates` list shows every event name + ID
+your token can see. Copy the three We Rock the Spectrum IDs into `EVENT_WRTS`
+(comma-separated) and redeploy to pin them exactly.
+
+## Sending an email from the dashboard
+
+The **✉ Compose email** button opens a panel to write a subject + message and
+send it to everyone registered for the current event (one personalized email
+each — `{{first}}` is replaced with the recipient's first name). It uses
+[Resend](https://resend.com) and is **safe by default**: it only sends when ALL
+of these are true, otherwise it just previews who it *would* email:
+
+1. You enter the correct **passphrase** (`SEND_SECRET`).
+2. `RESEND_API_KEY` is set.
+3. `EMAIL_LIVE` = `1` (the master "go live" switch).
+4. There is a subject, a message, and at least one recipient.
+
+### Env vars for compose-and-send (Vercel → Settings → Environment Variables)
+
+| Variable         | Purpose                                                          |
+| ---------------- | --------------------------------------------------------------- |
+| `SEND_SECRET`    | Passphrase you type in the dashboard to authorize sends. (Falls back to `CRON_SECRET` if unset.) |
+| `RESEND_API_KEY` | From resend.com. Enables sending.                               |
+| `EMAIL_LIVE`     | Set to `1` only when you're ready for real emails to go out.    |
+| `EMAIL_FROM`     | (optional) From address. Default `events@abtaba.com`.           |
+
+Until `EMAIL_LIVE=1`, the Send button is completely safe — it will only ever
+show you the recipient list and the reason nothing was sent.
 
 ## Automated reminder emails
 
@@ -65,7 +108,9 @@ It lists exactly who would be emailed. When happy, set `REMINDERS_LIVE=1`.
 ## Local / structure notes
 
 - `index.html` — the dashboard UI; fetches `/api/attendees`.
-- `api/attendees.js` — Vercel serverless function; Eventbrite sync + static
-  form families.
-- No build step is required; Vercel serves the static file and the function
+- `api/attendees.js` — Vercel serverless function; Eventbrite sync (Charlotte,
+  Cary, and We Rock the Spectrum) + static form families. Returns all questions.
+- `api/send-email.js` — compose-and-send endpoint (Resend), preview-safe.
+- `api/send-reminders.js` — automated daily reminder cron (Resend).
+- No build step is required; Vercel serves the static file and the functions
   automatically.
