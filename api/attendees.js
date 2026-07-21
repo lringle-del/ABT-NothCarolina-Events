@@ -72,84 +72,140 @@ function buildFamilies(attendees){
       date:(at.created||"").slice(0,10),
       purchaser:((at.profile&&at.profile.name)||"").trim(),
       email, phone:((at.profile&&at.profile.cell_phone)||"").trim(),
-      timeslot:"", emails:new Set(), attendees:[]});
+      timeslot:"", ticket:((at.ticket_class_name)||"").trim(), emails:new Set(), attendees:[]});
     const fam=orders.get(oid);
+    if(!fam.ticket && at.ticket_class_name) fam.ticket=String(at.ticket_class_name).trim();
     fam.emails.add(email.toLowerCase());
     fam.attendees.push(attendeeToChild(at));
   }
   return [...orders.values()];
 }
+// Discover EVERY event this token can see (across all the user's organizations),
+// returning each event's id, name, status, start date and venue. Grouping into
+// dashboard tabs happens later in getEvents so that all events — Charlotte, Cary,
+// We Rock the Spectrum, and anything added in the future — show up automatically.
 async function discoverEvents(token){
-  // There can be several similarly-named events (a Charlotte "Magical Day" AND
-  // a Cary "Magical Day", plus multiple "We Rock the Spectrum" time slots), so
-  // collect ALL matching ids per event rather than just the first.
-  const charlotteIds=[], caryIds=[], candidates=[];
+  const found=[], candidates=[];
   try{
     const me=await ebGet(`/users/me/organizations/`, token);
     for(const org of me.organizations||[]){
       let page=1, pages=1;
       do{
-        // status:"all" so already-passed events are still returned.
-        const d=await ebGet(`/organizations/${org.id}/events/`, token, {order_by:"created_desc",status:"all",page});
+        // status:"all" so already-passed events are still returned; expand the
+        // venue so we can label each tab with where it takes place.
+        const d=await ebGet(`/organizations/${org.id}/events/`, token, {order_by:"start_asc",status:"all",page,expand:"venue"});
         for(const ev of d.events||[]){
-          const name=((ev.name&&ev.name.text)||"");
-          const n=name.toLowerCase();
+          const name=((ev.name&&ev.name.text)||"").trim();
+          const item={
+            id:ev.id, name, status:ev.status,
+            start:((ev.start&&ev.start.local)||"").slice(0,10),
+            venue:((ev.venue&&ev.venue.name)||"").trim()
+          };
+          found.push(item);
           candidates.push({id:ev.id, name, status:ev.status});
-          // Both events are "Magical Day of Fun" — split by city.
-          // (The separate "We Rock the Spectrum" events are intentionally ignored.)
-          if(n.includes("magical") && !n.includes("cary")) charlotteIds.push(ev.id);
-          if(n.includes("magical") && n.includes("cary")) caryIds.push(ev.id);
         }
         pages=d.pagination?d.pagination.page_count:1;
       } while(page++<pages && page<=20);
     }
   }catch(e){}
-  return {charlotteIds, caryIds, candidates};
+  return {found, candidates};
 }
-// Fetch and merge attendees across a list of event ids.
+// Fetch and merge attendees across a list of event ids. A single unreadable
+// event id is skipped rather than failing the whole payload.
 async function attendeesForAll(idList, token){
   let raw=[];
-  for(const id of idList) raw = raw.concat(await allAttendees(id, token));
+  for(const id of idList){
+    try{ raw = raw.concat(await allAttendees(id, token)); }
+    catch(e){ /* skip an event id that can't be read */ }
+  }
   return raw;
 }
+function slug(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "event"; }
+// Known "We Rock the Spectrum" listing id, used only if name discovery misses it.
+const WRTS_FALLBACK_IDS=["1993615746364"];
 
 // Build the full events payload (shared by the dashboard API and the reminder mailer).
+// Every event the token can see becomes its own dashboard tab:
+//   • Charlotte & Cary are both the "Magical Day of Fun" (split by the word "cary").
+//   • We Rock the Spectrum's several time-slot listings merge into one tab.
+//   • Any other event becomes its own tab, keyed by name, so nothing is left out.
 export async function getEvents(token){
   const envList=v=>v?String(v).split(",").map(s=>s.trim()).filter(Boolean):null;
-  const {charlotteIds, caryIds, candidates}=await discoverEvents(token);
-  const charList=envList(process.env.EVENT_CHARLOTTE)||charlotteIds;
-  const caryList=envList(process.env.EVENT_CARY)||caryIds;
-  if(!charList.length && !caryList.length) throw new Error("No matching events found for this token.");
-  const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
+  const {found, candidates}=await discoverEvents(token);
 
-  const charRaw=await attendeesForAll(charList,token);
-  const charFams=buildFamilies(charRaw).map(f=>{
-    const c=[...f.emails].some(e=>confirmed.has(e)); delete f.emails;
-    return {...f, confirmed:c, count:f.attendees.length};
-  });
-  // Charlotte families who registered via the Microsoft Form (not Eventbrite).
-  const charEbEmails=new Set(charFams.map(f=>(f.email||"").toLowerCase()));
-  for(const ff of CHARLOTTE_FORM_FAMILIES){
-    if(isTest(ff.email)) continue;
-    if(charEbEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
-    charFams.push({...ff, confirmed:confirmed.has((ff.email||"").toLowerCase()), count:(ff.attendees||[]).length});
+  // Group discovered events into logical dashboard tabs.
+  const groups=new Map();
+  const ensure=(key,meta)=>{ if(!groups.has(key)) groups.set(key,{key,ids:new Set(),start:"",...meta}); return groups.get(key); };
+  const addId=(g,id,start)=>{ g.ids.add(String(id)); if(start&&(!g.start||start<g.start)) g.start=start; };
+
+  for(const ev of found){
+    const n=ev.name.toLowerCase();
+    let g;
+    if(n.includes("we rock the spectrum") || n.includes("spectrum kids gym")){
+      g=ensure("wrts",{name:"We Rock the Spectrum",venue:ev.venue||"We Rock the Spectrum Kids Gym",hasConfirm:false});
+    } else if(n.includes("magical") && n.includes("cary")){
+      g=ensure("cary",{name:"Cary",venue:ev.venue||"We Rock the Spectrum Kids Gym",hasConfirm:false});
+    } else if(n.includes("magical")){
+      g=ensure("charlotte",{name:"Charlotte",venue:ev.venue||"Free Magical Day of Fun",hasConfirm:true});
+    } else {
+      g=ensure(slug(ev.name),{name:ev.name||"Event",venue:ev.venue||"",hasConfirm:false});
+    }
+    addId(g,ev.id,ev.start);
   }
-  const caryRaw=await attendeesForAll(caryList,token);
-  const caryFams=buildFamilies(caryRaw).map(f=>{
-    delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
-  });
-  for(const ff of CARY_FORM_FAMILIES){ if(isTest(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
 
-  const out={events:[
-    {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
-    {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
-  ]};
-  return {out, dbg:{
-    charlotteIds:charList, caryIds:caryList,
-    charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
-    caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
-    candidates
-  }};
+  // Explicit env overrides (comma-separated event ids) win over name discovery.
+  const applyOverride=(key,meta,ids)=>{ if(!ids)return; ensure(key,meta).ids=new Set(ids.map(String)); };
+  applyOverride("charlotte",{name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true},envList(process.env.EVENT_CHARLOTTE));
+  applyOverride("cary",{name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false},envList(process.env.EVENT_CARY));
+  applyOverride("wrts",{name:"We Rock the Spectrum",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false},envList(process.env.EVENT_WRTS));
+
+  // If We Rock the Spectrum wasn't found by name or override, fall back to the
+  // known listing id so its tab still appears.
+  if(!groups.has("wrts")){
+    const g=ensure("wrts",{name:"We Rock the Spectrum",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false});
+    for(const id of WRTS_FALLBACK_IDS) g.ids.add(id);
+  }
+  // Charlotte & Cary always exist — they carry static Microsoft Form families.
+  ensure("charlotte",{name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true});
+  ensure("cary",{name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false});
+
+  const confirmed=new Set(CONFIRMED_EMAILS.map(e=>e.toLowerCase()));
+  const built=[];
+  for(const g of groups.values()){
+    const raw=await attendeesForAll([...g.ids], token);
+    const fams=buildFamilies(raw).map(f=>{
+      const isConf=[...f.emails].some(e=>confirmed.has(e));
+      delete f.emails;
+      // Surface the Eventbrite ticket class as a time slot (useful for the
+      // multi-slot We Rock the Spectrum event); Charlotte/Cary don't use it.
+      if(g.key!=="charlotte" && g.key!=="cary") f.timeslot=f.timeslot||f.ticket||"";
+      delete f.ticket;
+      return {...f, confirmed:g.hasConfirm?isConf:null, count:f.attendees.length};
+    });
+    // Static Microsoft Form families (Charlotte & Cary only).
+    const formFams = g.key==="charlotte"?CHARLOTTE_FORM_FAMILIES : g.key==="cary"?CARY_FORM_FAMILIES : [];
+    const ebEmails=new Set(fams.map(f=>(f.email||"").toLowerCase()));
+    for(const ff of formFams){
+      if(isTest(ff.email)) continue;
+      if(ebEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
+      fams.push({...ff, confirmed:g.hasConfirm?confirmed.has((ff.email||"").toLowerCase()):null, count:(ff.attendees||[]).length});
+    }
+    built.push({key:g.key,name:g.name,venue:g.venue,hasConfirm:g.hasConfirm,start:g.start||"",families:fams,_ids:[...g.ids],_raw:raw.length});
+  }
+
+  // Keep Charlotte & Cary always; other tabs appear only when they have registrations.
+  const visible=built.filter(e=> e.key==="charlotte"||e.key==="cary"||e.families.length>0);
+  if(!visible.length) throw new Error("No matching events found for this token.");
+
+  // Order: Charlotte, Cary, We Rock the Spectrum, then any others by date.
+  const rank=e=> e.key==="charlotte"?0 : e.key==="cary"?1 : e.key==="wrts"?2 : 3;
+  visible.sort((a,b)=> rank(a)-rank(b) || String(a.start).localeCompare(String(b.start)) || a.name.localeCompare(b.name));
+
+  const dbg={candidates, groups: visible.map(e=>({key:e.key,name:e.name,ids:e._ids,attendeesFetched:e._raw,families:e.families.length}))};
+  for(const e of visible){ delete e._ids; delete e._raw; }
+
+  const out={events:visible};
+  return {out, dbg};
 }
 
 export default async function handler(req,res){

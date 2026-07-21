@@ -1,8 +1,16 @@
 # ABT North Carolina Events — Dashboard Setup
 
-Live attendee dashboard for the Above & Beyond ABA events (Charlotte + Cary),
-hosted on Vercel. It's a static page (`index.html`) plus one serverless
+One live attendee dashboard for **all** of the Above & Beyond ABA Eventbrite
+events, hosted on Vercel. It's a static page (`index.html`) plus one serverless
 function (`api/attendees.js`) that securely pulls attendees from Eventbrite.
+
+Every event on your Eventbrite becomes its own tab automatically — Charlotte,
+Cary, We Rock the Spectrum, and any new event you create later. You don't have
+to touch the code to add an event: create it in Eventbrite and it shows up on the
+next load (a tab appears once it has at least one registration; Charlotte & Cary
+always show because they also carry Microsoft Form responses). Multiple listings
+for the same event — for example the We Rock the Spectrum time slots — merge into
+a single tab, with each registration tagged by its slot.
 
 ## Making the site public to everyone
 
@@ -27,8 +35,14 @@ Once disabled, anyone with the link can view the dashboard — no login needed.
 | Variable            | Required | Purpose                                                        |
 | ------------------- | -------- | -------------------------------------------------------------- |
 | `EVENTBRITE_TOKEN`  | Yes      | Private Eventbrite API token. Server-side only; never exposed. |
-| `EVENT_CHARLOTTE`   | Optional | Charlotte Eventbrite event ID (otherwise auto-discovered).     |
-| `EVENT_CARY`        | Optional | Cary Eventbrite event ID (otherwise auto-discovered).          |
+| `EVENT_CHARLOTTE`   | Optional | Charlotte Eventbrite event ID(s), comma-separated (otherwise auto-discovered). |
+| `EVENT_CARY`        | Optional | Cary Eventbrite event ID(s), comma-separated (otherwise auto-discovered).      |
+| `EVENT_WRTS`        | Optional | We Rock the Spectrum event ID(s), comma-separated, one per time slot (otherwise auto-discovered). |
+
+All events are auto-discovered by name, so these overrides are only needed if
+discovery ever grabs the wrong event or you want to pin exact IDs. Open
+`/api/attendees?debug=1` to see every event name + ID your token can see (the
+`candidates` list) and which tab each was grouped into (`groups`).
 
 After changing environment variables, **redeploy** for them to take effect.
 
