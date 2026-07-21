@@ -47,6 +47,10 @@ h1{font-family:'Libre Caslon Display',Georgia,serif;font-weight:400;font-size:cl
 .badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 .b-conf{background:var(--greenbg);color:var(--lagoon);}.b-pend{background:var(--graybg);color:#8a7a5f;}
 .b-src{background:#eef4f7;color:#4a6b78;}.b-form{background:#fbeede;color:var(--clay);}
+.dxchip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;background:#e7f0ef;color:var(--lagoon);white-space:nowrap;}
+.kidsum{flex-basis:100%;margin-top:6px;font-size:12.5px;color:var(--muted);}
+.kidsum b{color:var(--ink);}.kidsum .dxk{color:var(--lagoon);font-weight:700;}
+tr.dxrow td{background:#eef6f5;}
 .count{margin-left:auto;display:flex;align-items:center;gap:7px;font-weight:600;color:var(--clay);}
 .count .big{font-family:'Libre Caslon Display',serif;font-size:25px;color:var(--sunset);}
 .meta{width:100%;color:var(--muted);font-size:13px;margin-top:3px;display:flex;gap:16px;flex-wrap:wrap;}.meta a{color:var(--lagoon);text-decoration:none;}
@@ -100,15 +104,23 @@ function tiles(e){const s=mm(e.families);const t=[];t.push(['deep',s.families,'F
  return t.map(x=>'<div class="tile '+x[0]+'"><div class="n">'+x[1]+'</div><div class="l">'+x[2]+'</div>'+(x[3]?'<div class="s">'+x[3]+'</div>':'')+'</div>').join('');}
 function segButtons(e){const opts=e.hasConfirm?[['all','All'],['conf','Confirmed'],['pend','Not confirmed']]:[['all','All'],['Eventbrite','Eventbrite'],['Microsoft Form','Form']];
  return opts.map((o,i)=>'<button data-f="'+o[0]+'"'+(i===0?' class="on"':'')+'>'+o[1]+'</button>').join('');}
+function hasDx(a){return (a.dx||'').toLowerCase().startsWith('yes');}
+function dxCount(f){return (f.attendees||[]).filter(hasDx).length;}
+// One-line, always-visible summary of the kids in a family + who has a diagnosis.
+function kidSummary(f){const ks=f.attendees||[];if(!ks.length)return '';
+ const parts=ks.map(a=>{const nm=esc(a.child||'—');const age=a.age?' ('+esc(a.age)+')':'';return hasDx(a)?'<span class="dxk">🧩 '+nm+age+'</span>':nm+age;});
+ const dx=dxCount(f);
+ return '<div class="kidsum"><b>Kids ('+ks.length+'):</b> '+parts.join(' · ')+(dx?' — <b>'+dx+'</b> with autism dx':'')+'</div>';}
 function kids(f){const any=f.attendees.some(a=>a.child||a.dx||a.gain||a.aba);if(!any)return '<div class="empty">No custom-question answers on file for this registration.</div>';
  const rows=f.attendees.map(a=>{const hc=(a.haircut||'').toLowerCase()==='yes'?'<span class="hc-yes">✂ Yes</span>':((a.haircut||'').toLowerCase()==='no'?'<span class="hc-no">No</span>':'<span class="hc-no">—</span>');
-  return '<tr><td class="kname">'+esc(a.child||'—')+'</td><td>'+esc(a.age||'—')+'</td><td>'+pill(a.dx)+'</td><td>'+pill(a.aba)+'</td><td>'+pill(a.looking,'look')+'</td><td class="gain">'+esc(a.gain||'—')+'</td><td>'+hc+'</td></tr>';}).join('');
+  return '<tr'+(hasDx(a)?' class="dxrow"':'')+'><td class="kname">'+esc(a.child||'—')+'</td><td>'+esc(a.age||'—')+'</td><td>'+pill(a.dx)+'</td><td>'+pill(a.aba)+'</td><td>'+pill(a.looking,'look')+'</td><td class="gain">'+esc(a.gain||'—')+'</td><td>'+hc+'</td></tr>';}).join('');
  return '<table class="ktable"><thead><tr><th>Child</th><th>Age</th><th>Autism dx?</th><th>On ABA?</th><th>Seeking ABA?</th><th>What they want from the day</th><th>Haircut</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 function card(f,i,e){let badge;if(e.hasConfirm)badge=f.confirmed?'<span class="badge b-conf">✓ Confirmed</span>':'<span class="badge b-pend">Not confirmed</span>';
  else badge='<span class="badge '+(f.source==='Microsoft Form'?'b-form':'b-src')+'">'+esc(f.source||'Eventbrite')+'</span>';
  const phone=f.phone?'<span>📞 '+esc(f.phone)+'</span>':'';const slot=f.timeslot?'<span>🕐 '+esc(f.timeslot)+'</span>':'';
- return '<div class="fam" data-i="'+i+'"><div class="fhead" onclick="this.parentNode.classList.toggle(\'open\')"><span class="chev">▶</span><span class="fname">'+esc(f.purchaser||'(no name)')+'</span>'+badge+
-  '<span class="count"><span class="big">'+f.count+'</span> '+(f.count===1?'guest':'guests')+'</span><div class="meta"><span>✉ <a href="mailto:'+esc(f.email)+'">'+esc(f.email)+'</a></span>'+phone+slot+'<span>'+esc(f.order||'')+' · '+esc(f.date||'')+'</span></div></div><div class="kids">'+kids(f)+'</div></div>';}
+ const dxc=dxCount(f);const dxchip=dxc?'<span class="dxchip">🧩 '+dxc+' dx</span>':'';
+ return '<div class="fam" data-i="'+i+'"><div class="fhead" onclick="this.parentNode.classList.toggle(\'open\')"><span class="chev">▶</span><span class="fname">'+esc(f.purchaser||'(no name)')+'</span>'+badge+dxchip+
+  '<span class="count"><span class="big">'+f.count+'</span> '+(f.count===1?'guest':'guests')+'</span><div class="meta"><span>✉ <a href="mailto:'+esc(f.email)+'">'+esc(f.email)+'</a></span>'+phone+slot+'<span>'+esc(f.order||'')+' · '+esc(f.date||'')+'</span></div>'+kidSummary(f)+'</div><div class="kids">'+kids(f)+'</div></div>';}
 const listEl=document.getElementById('list');
 function buildHeader(){const combined=mm(EV[0].families.concat(EV[1].families));
  document.getElementById('sub').innerHTML='Two North Carolina events on one view — <b>'+combined.families+' families</b>, <b>'+combined.attendees+' guests</b> across Charlotte &amp; Cary. Switch events with the tabs below.';
