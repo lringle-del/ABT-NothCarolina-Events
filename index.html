@@ -48,6 +48,7 @@ h1{font-family:'Libre Caslon Display',Georgia,serif;font-weight:400;font-size:cl
 .b-conf{background:var(--greenbg);color:var(--lagoon);}.b-pend{background:var(--graybg);color:#8a7a5f;}
 .b-src{background:#eef4f7;color:#4a6b78;}.b-form{background:#fbeede;color:var(--clay);}
 .dxchip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;background:#e7f0ef;color:var(--lagoon);white-space:nowrap;}
+.newchip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;background:var(--sungold);color:#5a3410;white-space:nowrap;}
 .kidsum{flex-basis:100%;margin-top:6px;font-size:12.5px;color:var(--muted);}
 .kidsum b{color:var(--ink);}.kidsum .dxk{color:var(--lagoon);font-weight:700;}
 tr.dxrow td{background:#eef6f5;}
@@ -102,8 +103,9 @@ function tiles(e){const s=mm(e.families);const t=[];t.push(['deep',s.families,'F
  if(e.hasConfirm)t.push(['accent',s.confirmed,'Confirmed',(s.families-s.confirmed)+' awaiting']);
  t.push(['',s.dx,'Autism diagnosis','children (Yes)']);t.push(['',s.ly+s.le,'Interested in ABA',s.ly+' yes · '+s.le+' exploring']);t.push(['',s.hc,'Haircuts requested','']);
  return t.map(x=>'<div class="tile '+x[0]+'"><div class="n">'+x[1]+'</div><div class="l">'+x[2]+'</div>'+(x[3]?'<div class="s">'+x[3]+'</div>':'')+'</div>').join('');}
-function segButtons(e){const opts=e.hasConfirm?[['all','All'],['conf','Confirmed'],['pend','Not confirmed']]:[['all','All'],['Eventbrite','Eventbrite'],['Microsoft Form','Form']];
+function segButtons(e){const opts=e.hasConfirm?[['all','All'],['conf','Confirmed'],['pend','Not confirmed'],['new','🆕 New']]:[['all','All'],['Eventbrite','Eventbrite'],['Microsoft Form','Form'],['new','🆕 New']];
  return opts.map((o,i)=>'<button data-f="'+o[0]+'"'+(i===0?' class="on"':'')+'>'+o[1]+'</button>').join('');}
+function daysSince(d){if(!d)return 9999;const t=new Date(new Date().toDateString());const p=new Date(d+'T00:00:00');const n=Math.round((t-p)/86400000);return isNaN(n)?9999:n;}
 function hasDx(a){return (a.dx||'').toLowerCase().startsWith('yes');}
 function dxCount(f){return (f.attendees||[]).filter(hasDx).length;}
 // One-line, always-visible summary of the kids in a family + who has a diagnosis.
@@ -119,7 +121,8 @@ function card(f,i,e){let badge;if(e.hasConfirm)badge=f.confirmed?'<span class="b
  else badge='<span class="badge '+(f.source==='Microsoft Form'?'b-form':'b-src')+'">'+esc(f.source||'Eventbrite')+'</span>';
  const phone=f.phone?'<span>📞 '+esc(f.phone)+'</span>':'';const slot=f.timeslot?'<span>🕐 '+esc(f.timeslot)+'</span>':'';
  const dxc=dxCount(f);const dxchip=dxc?'<span class="dxchip">🧩 '+dxc+' dx</span>':'';
- return '<div class="fam" data-i="'+i+'"><div class="fhead" onclick="this.parentNode.classList.toggle(\'open\')"><span class="chev">▶</span><span class="fname">'+esc(f.purchaser||'(no name)')+'</span>'+badge+dxchip+
+ const ds=daysSince(f.date);const newchip=ds<=3?'<span class="newchip">🆕 '+(ds<=0?'Today':(ds===1?'Yesterday':ds+'d ago'))+'</span>':'';
+ return '<div class="fam" data-i="'+i+'"><div class="fhead" onclick="this.parentNode.classList.toggle(\'open\')"><span class="chev">▶</span><span class="fname">'+esc(f.purchaser||'(no name)')+'</span>'+badge+newchip+dxchip+
   '<span class="count"><span class="big">'+f.count+'</span> '+(f.count===1?'guest':'guests')+'</span><div class="meta"><span>✉ <a href="mailto:'+esc(f.email)+'">'+esc(f.email)+'</a></span>'+phone+slot+'<span>'+esc(f.order||'')+' · '+esc(f.date||'')+'</span></div>'+kidSummary(f)+'</div><div class="kids">'+kids(f)+'</div></div>';}
 const listEl=document.getElementById('list');
 function buildHeader(){const combined=mm(EV[0].families.concat(EV[1].families));
@@ -131,6 +134,7 @@ function renderEvent(){const e=EV[cur];document.getElementById('venue').textCont
 function apply(){const e=EV[cur];document.querySelectorAll('.fam').forEach(el=>{const f=e.families[+el.dataset.i];let ok=true;
  if(filter==='conf'&&!f.confirmed)ok=false;if(filter==='pend'&&f.confirmed)ok=false;
  if(filter==='Eventbrite'&&f.source!=='Eventbrite')ok=false;if(filter==='Microsoft Form'&&f.source!=='Microsoft Form')ok=false;
+ if(filter==='new'&&daysSince(f.date)>3)ok=false;
  if(ok&&query){const hay=(f.purchaser+' '+f.email+' '+f.phone+' '+f.attendees.map(a=>a.child+' '+a.gain).join(' ')).toLowerCase();ok=hay.includes(query);}
  el.classList.toggle('hidden',!ok);});}
 function draw(){buildHeader();renderEvent();}
