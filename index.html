@@ -103,10 +103,21 @@ function tiles(e){const s=mm(e.families);const t=[];t.push(['deep',s.families,'F
  if(e.hasConfirm)t.push(['accent',s.confirmed,'Confirmed',(s.families-s.confirmed)+' awaiting']);
  t.push(['',s.dx,'Autism diagnosis','children (Yes)']);t.push(['',s.ly+s.le,'Interested in ABA',s.ly+' yes · '+s.le+' exploring']);t.push(['',s.hc,'Haircuts requested','']);
  return t.map(x=>'<div class="tile '+x[0]+'"><div class="n">'+x[1]+'</div><div class="l">'+x[2]+'</div>'+(x[3]?'<div class="s">'+x[3]+'</div>':'')+'</div>').join('');}
-function segButtons(e){const opts=e.hasConfirm?[['all','All'],['conf','Confirmed'],['pend','Not confirmed'],['new','🆕 New']]:[['all','All'],['Eventbrite','Eventbrite'],['Microsoft Form','Form'],['new','🆕 New']];
+function segButtons(e){const opts=e.hasConfirm?[['all','All'],['conf','Confirmed'],['pend','Not confirmed'],['new','🆕 New'],['haircut','✂ Haircut']]:[['all','All'],['Eventbrite','Eventbrite'],['Microsoft Form','Form'],['new','🆕 New'],['haircut','✂ Haircut']];
  return opts.map((o,i)=>'<button data-f="'+o[0]+'"'+(i===0?' class="on"':'')+'>'+o[1]+'</button>').join('');}
 function daysSince(d){if(!d)return 9999;const t=new Date(new Date().toDateString());const p=new Date(d+'T00:00:00');const n=Math.round((t-p)/86400000);return isNaN(n)?9999:n;}
 function hasDx(a){return (a.dx||'').toLowerCase().startsWith('yes');}
+function wantsHaircut(f){return (f.attendees||[]).some(a=>(a.haircut||'').toLowerCase()==='yes');}
+// Does a family match the active segment filter + search box? Shared by the list, email, and download.
+function matches(f){
+ if(filter==='conf'&&!f.confirmed)return false;
+ if(filter==='pend'&&f.confirmed)return false;
+ if(filter==='Eventbrite'&&f.source!=='Eventbrite')return false;
+ if(filter==='Microsoft Form'&&f.source!=='Microsoft Form')return false;
+ if(filter==='new'&&daysSince(f.date)>3)return false;
+ if(filter==='haircut'&&!wantsHaircut(f))return false;
+ if(query){const hay=(f.purchaser+' '+f.email+' '+f.phone+' '+f.attendees.map(a=>a.child+' '+a.gain).join(' ')).toLowerCase();if(!hay.includes(query))return false;}
+ return true;}
 function dxCount(f){return (f.attendees||[]).filter(hasDx).length;}
 // One-line, always-visible summary of the kids in a family + who has a diagnosis.
 function kidSummary(f){const ks=f.attendees||[];if(!ks.length)return '';
@@ -131,12 +142,7 @@ function buildHeader(){const combined=mm(EV[0].families.concat(EV[1].families));
 function renderEvent(){const e=EV[cur];document.getElementById('venue').textContent=e.venue;document.getElementById('tiles').innerHTML=tiles(e);
  document.getElementById('seg').innerHTML=segButtons(e);document.getElementById('q').value=query='';filter='all';
  listEl.innerHTML=e.families.map((f,i)=>card(f,i,e)).join('');apply();}
-function apply(){const e=EV[cur];document.querySelectorAll('.fam').forEach(el=>{const f=e.families[+el.dataset.i];let ok=true;
- if(filter==='conf'&&!f.confirmed)ok=false;if(filter==='pend'&&f.confirmed)ok=false;
- if(filter==='Eventbrite'&&f.source!=='Eventbrite')ok=false;if(filter==='Microsoft Form'&&f.source!=='Microsoft Form')ok=false;
- if(filter==='new'&&daysSince(f.date)>3)ok=false;
- if(ok&&query){const hay=(f.purchaser+' '+f.email+' '+f.phone+' '+f.attendees.map(a=>a.child+' '+a.gain).join(' ')).toLowerCase();ok=hay.includes(query);}
- el.classList.toggle('hidden',!ok);});}
+function apply(){const e=EV[cur];document.querySelectorAll('.fam').forEach(el=>{const f=e.families[+el.dataset.i];el.classList.toggle('hidden',!matches(f));});}
 function draw(){buildHeader();renderEvent();}
 document.getElementById('tabs').addEventListener('click',ev=>{const b=ev.target.closest('.tab');if(!b)return;cur=+b.dataset.i;
  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));b.classList.add('on');renderEvent();});
@@ -144,12 +150,12 @@ document.getElementById('seg').addEventListener('click',ev=>{if(ev.target.tagNam
 document.getElementById('q').addEventListener('input',ev=>{query=ev.target.value.toLowerCase();apply();});
 function csv(rows){return rows.map(r=>r.map(c=>{c=(c==null?'':String(c));return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\n');}
 function dl(name,rows){const blob=new Blob([csv(rows)],{type:'text/csv'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);}
-document.getElementById('dlEvent').addEventListener('click',()=>{const e=EV[cur];const seen=new Set();const out=[['Event','Family / Parent','Email','Phone','Guests','Confirmed']];
- for(const f of e.families){const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);out.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No')]);}dl('emails_'+e.name.toLowerCase()+'.csv',out);});
+document.getElementById('dlEvent').addEventListener('click',()=>{const e=EV[cur];const seen=new Set();const out=[['Event','Family / Parent','Email','Phone','Guests','Confirmed','Haircut']];
+ for(const f of e.families){if(!matches(f))continue;const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);out.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No'),wantsHaircut(f)?'Yes':'No']);}dl('emails_'+e.name.toLowerCase()+'.csv',out);});
 document.getElementById('dlAll').addEventListener('click',()=>{let rows=[['Event','Family / Parent','Email','Phone','Guests','Confirmed']];const seen=new Set();
  for(const e of EV)for(const f of e.families){const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);rows.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No')]);}dl('emails_all_events.csv',rows);});
 function emailFamilies(onlyPending){const e=EV[cur];const seen=new Set();const emails=[];
- for(const f of e.families){if(onlyPending&&f.confirmed)continue;const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);emails.push(f.email);}
+ for(const f of e.families){if(!matches(f))continue;if(onlyPending&&f.confirmed)continue;const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);emails.push(f.email);}
  if(!emails.length){alert(onlyPending?('Everyone in '+e.name+' is already confirmed — no reminders needed. 🎉'):('No email addresses found for '+e.name+'.'));return;}
  const list=emails.join(';');
  const subject=encodeURIComponent(e.name+' Event — Friendly Reminder');
