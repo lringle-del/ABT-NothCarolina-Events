@@ -9,7 +9,7 @@
 import { buildEmail, EVENT_INFO, SEQUENCE_OFFSETS } from "./emails.js";
 
 const FROM = process.env.REMINDER_FROM || "Above & Beyond ABA <reminders@abtaba.com>";
-const REPLY_TO = process.env.REMINDER_REPLY_TO || "info@abtaba.com";
+const REPLY_TO = process.env.REMINDER_REPLY_TO || "lringle@abtaba.com";
 
 function baseUrl(req){
   if(process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");

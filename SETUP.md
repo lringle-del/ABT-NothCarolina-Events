@@ -52,15 +52,19 @@ it runs in preview mode (sends nothing and just reports who it would email):
 2. `RESEND_API_KEY` is set
 3. `REMINDERS_LIVE` = `1`  ← the master "go live" switch
 4. Today is a send day for that event (7, 3, 2, and 0 days before, by default)
-5. **That specific email has been approved** on the dashboard (see below)
 
-### Preview & approve from the dashboard
+**Minimum to send:** just set `RESEND_API_KEY`, `CRON_SECRET`, and
+`REMINDERS_LIVE=1` (plus the `EVENTBRITE_TOKEN` you already have). No database
+needed.
 
-On the dashboard, open **📧 Preview & approve emails**. You'll see all four
-emails rendered exactly as they'll send, each with an **Approve to send** button.
-Nothing goes out until you approve it — approve individually or approve them all.
-Approvals persist in Vercel KV. The first time you approve you'll be asked for the
-admin key (your `CRON_SECRET`); it's remembered in your browser after that.
+### Preview & approve from the dashboard (optional)
+
+On the dashboard, open **📧 Preview & approve emails** to see all four emails
+rendered exactly as they'll send. The **Approve to send** buttons are an *optional*
+gate: they only take effect if you connect **Vercel KV** (Storage). Without KV the
+approval step is skipped and emails send purely on the schedule above. With KV
+connected, each email must be approved (admin key = your `CRON_SECRET`, remembered
+in your browser).
 
 ### Send yourself a sample
 
@@ -68,7 +72,7 @@ In the same panel there's a **Send samples to…** box: enter any address and cl
 **Send all 4 samples to me** (or **✉ Sample** on a single email). This calls
 `/api/send-sample` and emails you a `[SAMPLE]`-prefixed copy via Resend — it needs
 `RESEND_API_KEY` and your admin key, but ignores the `REMINDERS_LIVE` gate so you can
-test to yourself anytime. The confirm button in a sample is inert.
+test to yourself anytime.
 
 ### Logo
 
@@ -76,12 +80,16 @@ The header uses `logo.png` at the site root (served by Vercel). Swap that file t
 change the logo. Emails reference it by absolute URL (`<site>/logo.png`), derived
 from the request host or `PUBLIC_BASE_URL`.
 
-### Confirming a spot
+### Confirming a spot (reply-based)
 
-Emails 1–3 include a **"Yes — confirm our spot"** button. Tapping it records the
-family as confirmed (in Vercel KV) and flips them to ✅ Confirmed on the dashboard.
-Confirmed families are automatically dropped from later "not-confirmed" reminders.
-The link is signed with `CRON_SECRET` so it can't be forged.
+Emails 1–3 ask families to **reply with the word "Confirm."** Those replies go to
+`REMINDER_REPLY_TO` (default `lringle@abtaba.com`). To mark them on the dashboard,
+add their email addresses (lowercase) to `CARY_CONFIRMED_EMAILS` in
+`api/attendees.js` and redeploy — they'll show as ✓ Confirmed and drop out of the
+later "not-confirmed" reminders.
+
+(If you ever connect Vercel KV, the old one-tap confirm button + `/api/confirm`
+endpoint also still work and merge with this list — but no database is required.)
 
 ### Env vars (Vercel → Settings → Environment Variables)
 

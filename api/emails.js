@@ -75,13 +75,11 @@ function logisticsHtml(ev){
     </div>`;
 }
 
-// The "confirm your spot" call-to-action. Renders nothing without a URL.
-function confirmButton(confirmUrl){
-  if(!confirmUrl) return "";
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;"><tr><td align="center">
-      <a href="${confirmUrl}" style="background:${CONFIRM_GREEN};color:#ffffff;text-decoration:none;font-size:17px;font-weight:700;padding:15px 30px;border-radius:10px;display:inline-block;">✅ Yes — confirm our spot</a>
-    </td></tr></table>
-    <p style="text-align:center;font-size:13px;color:#888;margin:8px 0 0;">One tap lets us know your family is coming.</p>`;
+// The "confirm your spot" call-to-action: a reply-to-confirm callout.
+function replyConfirmHtml(){
+  return `<div style="background:#EAF7EF;border:1px solid #B7E0C4;border-radius:12px;padding:14px 18px;margin:8px 0 4px;text-align:center;font-size:16px;line-height:1.5;color:${BRAND_NAVY};">
+      ✅ <strong>To confirm your spot,</strong> just reply to this email with the word <strong>&ldquo;Confirm.&rdquo;</strong>
+    </div>`;
 }
 
 function shell(preheader, innerHtml){
@@ -126,8 +124,8 @@ export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
         highlightsHtml() +
         logisticsHtml(ev) +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">
-          Can we count you in? Tap below to lock in your family's spot:</p>` +
-        confirmButton(confirmUrl) +
+          Can we count you in? Just reply to this email with the word &ldquo;Confirm&rdquo; and we'll save your family's spot.</p>` +
+        replyConfirmHtml() +
         signoff()
       ),
     };
@@ -145,8 +143,8 @@ export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
         highlightsHtml() +
         logisticsHtml(ev) +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">
-          Haven't confirmed yet? One tap helps us plan for you:</p>` +
-        confirmButton(confirmUrl) +
+          Haven't confirmed yet? Just reply &ldquo;Confirm&rdquo; and we'll save your spot.</p>` +
+        replyConfirmHtml() +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:16px 0 0;">
           Tip: our autism-friendly barber tends to stay busy — arriving early in your time slot is the best way
           to catch a free haircut. See you soon!</p>` +
@@ -168,8 +166,8 @@ export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">A quick reminder of what's in store:</p>` +
         highlightsHtml() +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">
-          Still need to confirm? It only takes a tap:</p>` +
-        confirmButton(confirmUrl) +
+          Still need to confirm? Reply &ldquo;Confirm&rdquo; to this email and you're all set.</p>` +
+        replyConfirmHtml() +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:16px 0 0;">
           Everything is free, and no special preparation is needed — just bring your family and come as you are.</p>` +
         signoff()

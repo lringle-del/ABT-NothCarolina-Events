@@ -24,7 +24,7 @@ import { getApprovals, getConfirmed, confirmToken, kvEnabled } from "./store.js"
 
 const OFFSETS = (process.env.REMINDER_OFFSETS || "7,3,2,0").split(",").map(n => parseInt(n, 10)).filter(n => !isNaN(n));
 const FROM = process.env.REMINDER_FROM || "Above & Beyond ABA <reminders@abtaba.com>";
-const REPLY_TO = process.env.REMINDER_REPLY_TO || "info@abtaba.com";
+const REPLY_TO = process.env.REMINDER_REPLY_TO || "lringle@abtaba.com";
 
 const EVENT_DATE = {
   charlotte: process.env.EVENT_CHARLOTTE_DATE || null,
