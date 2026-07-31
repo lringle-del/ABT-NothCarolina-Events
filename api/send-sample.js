@@ -21,15 +21,20 @@ function validEmail(e){ return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); }
 
 export default async function handler(req, res){
   const q = req.query || {};
-  const secret = process.env.CRON_SECRET;
-  if(!secret || q.key !== secret) return res.status(401).json({ error: "unauthorized" });
-
-  const apiKey = process.env.RESEND_API_KEY;
-  if(!apiKey) return res.status(400).json({ error: "RESEND_API_KEY not set" });
-
-  const event = String(q.event || "cary").toLowerCase();
   const to = String(q.to || "").trim();
   if(!validEmail(to)) return res.status(400).json({ error: "provide a valid ?to= email" });
+
+  // Allow if the admin key matches OR the sample goes to your own @abtaba.com
+  // inbox (so testing to yourself needs no key; can't be used to spam others).
+  const secret = process.env.CRON_SECRET;
+  const keyOk = !!secret && q.key === secret;
+  const domainOk = /@abtaba\.com$/i.test(to);
+  if(!keyOk && !domainOk) return res.status(401).json({ error: "Use an @abtaba.com address, or the admin key." });
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if(!apiKey) return res.status(400).json({ error: "RESEND_API_KEY not set in Vercel yet" });
+
+  const event = String(q.event || "cary").toLowerCase();
 
   const offsets = String(q.offset) === "all"
     ? SEQUENCE_OFFSETS

@@ -244,10 +244,9 @@ async function sendSample(off){
  const to=(document.getElementById('emSampleTo').value||'').trim();
  if(!to){alert('Enter an email address to send the sample to.');return;}
  localStorage.setItem('abtSampleTo',to);
- const k=adminKey();if(!k)return;
+ const k=localStorage.getItem('abtAdminKey')||''; // optional; @abtaba.com needs no key
  const e=EV[cur];const key=e.key||(e.name||'').toLowerCase();
  try{const r=await fetch('/api/send-sample?event='+encodeURIComponent(key)+'&offset='+off+'&to='+encodeURIComponent(to)+'&key='+encodeURIComponent(k),{cache:'no-store'});
-  if(r.status===401){alert('Admin key rejected — try again.');localStorage.removeItem('abtAdminKey');return;}
   const j=await r.json();
   if(j.sent){alert('✅ Sent '+j.sent+' sample'+(j.sent===1?'':'s')+' to '+to+(j.failed?('\n⚠️ '+j.failed+' failed: '+(j.errors||[]).join('; ')):''));}
   else{alert('Could not send: '+(j.error||(j.errors||[]).join('; ')||'unknown error'));}
