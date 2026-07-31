@@ -9,8 +9,10 @@
 
 import crypto from "node:crypto";
 
-const URL_ = process.env.KV_REST_API_URL || null;
-const TOKEN = process.env.KV_REST_API_TOKEN || null;
+// Accept either the Vercel KV names or the Upstash Redis names, depending on
+// how the storage integration was added in the Vercel dashboard.
+const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || null;
+const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 export function kvEnabled(){ return !!(URL_ && TOKEN); }
 
