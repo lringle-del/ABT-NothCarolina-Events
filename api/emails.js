@@ -9,6 +9,22 @@ const BRAND_ORANGE = "#F59E2C";
 const BRAND_NAVY = "#1B3A6B";
 const CONFIRM_GREEN = "#2E9E5B";
 
+// Set per-call by buildEmail so shell() can render the logo without threading
+// it through every template branch.
+let CURRENT_LOGO = "";
+
+function headerHtml(logoUrl){
+  if(logoUrl){
+    return `<tr><td align="center" style="background:#ffffff;padding:20px 32px;border-bottom:4px solid ${BRAND_ORANGE};">
+      <img src="${logoUrl}" alt="Above &amp; Beyond ABA Therapy" width="180" style="display:block;width:180px;max-width:60%;height:auto;margin:0 auto;border:0;">
+    </td></tr>`;
+  }
+  return `<tr><td style="background:${BRAND_ORANGE};padding:22px 32px;">
+      <span style="color:#ffffff;font-size:20px;font-weight:700;">above &amp; beyond</span>
+      <span style="color:#ffffff;font-size:13px;letter-spacing:2px;display:block;">ABA THERAPY</span>
+    </td></tr>`;
+}
+
 export const EVENT_INFO = {
   cary: {
     title: "Free Magical Day of Fun",
@@ -74,10 +90,7 @@ function shell(preheader, innerHtml){
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:24px 0;">
       <tr><td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-          <tr><td style="background:${BRAND_ORANGE};padding:22px 32px;">
-            <span style="color:#ffffff;font-size:20px;font-weight:700;">above &amp; beyond</span>
-            <span style="color:#ffffff;font-size:13px;letter-spacing:2px;display:block;">ABA THERAPY</span>
-          </td></tr>
+          ${headerHtml(CURRENT_LOGO)}
           <tr><td style="padding:32px;">${innerHtml}</td></tr>
           <tr><td style="padding:20px 32px;background:#fafafa;border-top:1px solid #eee;font-size:12px;line-height:1.6;color:#888;">
             You're receiving this because you registered for our free community event.<br>
@@ -95,7 +108,8 @@ function h1(text){ return `<h1 style="font-size:26px;line-height:1.25;color:${BR
 
 // Build {subject, html} for a given offset (days before the event).
 // confirmUrl is the per-recipient "confirm my spot" link (omit for generic preview).
-export function buildEmail(offset, first, ev, confirmUrl){
+export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
+  CURRENT_LOGO = logoUrl || "";
   // 7 days out — the "why + what" welcome.
   if(offset >= 7){
     return {

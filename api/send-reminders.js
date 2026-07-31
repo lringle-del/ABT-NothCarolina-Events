@@ -99,6 +99,8 @@ export default async function handler(req, res){
     }
   }
 
+  const origin = baseUrl(req);
+  const logoUrl = `${origin}/logo.png`;
   const sendable = recipients.filter(r => r.approved);
   const willSend = liveEnabled && !!apiKey && sendable.length > 0;
 
@@ -114,20 +116,19 @@ export default async function handler(req, res){
       mode:"preview", today:todayISO(), event:which, audience,
       schedule: gated.map(g => ({event:g.event.key, date:EVENT_DATE[g.event.key]||null, daysUntil:g.daysUntil, dueToday:g.dueToday, offset:g.offset, approved:g.approved})),
       wouldSend: sendable.length, dueButUnapproved: recipients.length - sendable.length, reasons,
-      sample: sampleR ? (()=>{ const ev=EVENT_INFO[sampleR.eventKey]||EVENT_INFO.cary; const m=buildEmail(sampleR.offset, "there", ev, "#"); return {offset:sampleR.offset, subject:m.subject}; })() : null,
+      sample: sampleR ? (()=>{ const ev=EVENT_INFO[sampleR.eventKey]||EVENT_INFO.cary; const m=buildEmail(sampleR.offset, "there", ev, "#", logoUrl); return {offset:sampleR.offset, subject:m.subject}; })() : null,
       recipients: sendable.map(r => r.email)
     });
   }
 
   // LIVE: one personalized email per family via Resend.
-  const origin = baseUrl(req);
   const results = { sent:0, failed:0, errors:[] };
   for(const r of sendable){
     const first = r.name ? r.name.trim().split(/\s+/)[0] : "there";
     const ev = EVENT_INFO[r.eventKey] || EVENT_INFO.cary;
     const tok = confirmToken(r.eventKey, r.email, secret);
     const confirmUrl = `${origin}/api/confirm?event=${encodeURIComponent(r.eventKey)}&email=${encodeURIComponent(r.email)}&token=${encodeURIComponent(tok)}`;
-    const { subject, html } = buildEmail(r.offset, first, ev, confirmUrl);
+    const { subject, html } = buildEmail(r.offset, first, ev, confirmUrl, logoUrl);
     try{
       const resp = await fetch("https://api.resend.com/emails", {
         method:"POST",

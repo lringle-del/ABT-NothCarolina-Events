@@ -12,7 +12,11 @@ export default function handler(req, res){
   const first = q.name ? String(q.name) : "there";
   const ev = EVENT_INFO[event] || EVENT_INFO.cary;
 
-  const { html } = buildEmail(offset, first, ev, "#");
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  const base = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/$/, "") : `${proto}://${host}`;
+
+  const { html } = buildEmail(offset, first, ev, "#", `${base}/logo.png`);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   return res.status(200).send(html);

@@ -62,6 +62,20 @@ Nothing goes out until you approve it — approve individually or approve them a
 Approvals persist in Vercel KV. The first time you approve you'll be asked for the
 admin key (your `CRON_SECRET`); it's remembered in your browser after that.
 
+### Send yourself a sample
+
+In the same panel there's a **Send samples to…** box: enter any address and click
+**Send all 4 samples to me** (or **✉ Sample** on a single email). This calls
+`/api/send-sample` and emails you a `[SAMPLE]`-prefixed copy via Resend — it needs
+`RESEND_API_KEY` and your admin key, but ignores the `REMINDERS_LIVE` gate so you can
+test to yourself anytime. The confirm button in a sample is inert.
+
+### Logo
+
+The header uses `logo.png` at the site root (served by Vercel). Swap that file to
+change the logo. Emails reference it by absolute URL (`<site>/logo.png`), derived
+from the request host or `PUBLIC_BASE_URL`.
+
 ### Confirming a spot
 
 Emails 1–3 include a **"Yes — confirm our spot"** button. Tapping it records the
@@ -107,6 +121,8 @@ specific email. When happy, approve on the dashboard and set `REMINDERS_LIVE=1`.
 - `api/email-preview.js` — renders one email as HTML for the dashboard preview.
 - `api/approve.js` — read/set per-email approval state (admin-key protected).
 - `api/confirm.js` — target of the "confirm our spot" button.
+- `api/send-sample.js` — sends `[SAMPLE]` copies to a chosen address (admin-key).
 - `api/store.js` — Vercel KV (Upstash REST) helpers + signed confirm tokens.
+- `logo.png` — brand logo shown in the email header and served at `/logo.png`.
 - No build step is required; Vercel serves the static file and the functions
   automatically. `api/store.js` uses the KV REST API directly — no npm deps.

@@ -98,6 +98,7 @@ tr.dxrow td{background:#eef6f5;}
   <input class="search" id="q" placeholder="Search family, child, email, phone…">
   <div class="seg" id="seg"></div>
   <button class="dl" id="dlEvent">⬇ Emails (this event)</button>
+  <button class="dl" id="dlFull">⬇ Full details + answers</button>
   <button class="dl alt" id="dlAll">⬇ All emails</button>
   <button class="dl" id="emailPending">✉ Email not-confirmed</button>
   <button class="dl" id="emailAll">✉ Email all</button>
@@ -112,6 +113,10 @@ tr.dxrow td{background:#eef6f5;}
   <h2>Email sequence</h2>
   <div class="mnote" id="emSub"></div>
   <div id="emWarn"></div>
+  <div id="emSampleRow" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 2px;">
+    <input id="emSampleTo" type="email" placeholder="Send samples to… you@abtaba.com" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink);">
+    <button class="dl" id="emSampleAll" style="background:var(--lagoon)">✉ Send all 4 samples to me</button>
+  </div>
   <div id="emCards"></div>
 </div></div>
 <script>
@@ -178,6 +183,11 @@ function csv(rows){return rows.map(r=>r.map(c=>{c=(c==null?'':String(c));return 
 function dl(name,rows){const blob=new Blob([csv(rows)],{type:'text/csv'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);}
 document.getElementById('dlEvent').addEventListener('click',()=>{const e=EV[cur];const seen=new Set();const out=[['Event','Family / Parent','Email','Phone','Guests','Confirmed','Haircut']];
  for(const f of e.families){if(!matches(f))continue;const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);out.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No'),wantsHaircut(f)?'Yes':'No']);}dl('emails_'+e.name.toLowerCase()+'.csv',out);});
+document.getElementById('dlFull').addEventListener('click',()=>{const e=EV[cur];
+ const out=[['Event','Family / Parent','Email','Phone','Time slot','Source','Confirmed','Signup date','Guests in family','Child','Age','Autism dx?','Currently on ABA?','Seeking ABA / new provider?','Wants haircut?','What they want from the day']];
+ for(const f of e.families){if(!matches(f))continue;const ks=(f.attendees&&f.attendees.length)?f.attendees:[{}];
+  for(const a of ks){out.push([e.name,f.purchaser,f.email,f.phone,f.timeslot||'',f.source||'',f.confirmed==null?'':(f.confirmed?'Yes':'No'),f.date||'',f.count,a.child||'',a.age||'',a.dx||'',a.aba||'',a.looking||'',a.haircut||'',a.gain||'']);}}
+ dl('details_'+e.name.toLowerCase()+'.csv',out);});
 document.getElementById('dlAll').addEventListener('click',()=>{let rows=[['Event','Family / Parent','Email','Phone','Guests','Confirmed']];const seen=new Set();
  for(const e of EV)for(const f of e.families){const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);rows.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No')]);}dl('emails_all_events.csv',rows);});
 function emailFamilies(onlyPending){const e=EV[cur];const seen=new Set();const emails=[];
@@ -203,6 +213,7 @@ async function openEmailModal(){
  const cards=document.getElementById('emCards');cards.innerHTML='<div class="mnote">Loading preview…</div>';
  document.getElementById('emWarn').innerHTML='';
  document.getElementById('emSub').textContent=e.name+' · '+e.venue;
+ document.getElementById('emSampleTo').value=localStorage.getItem('abtSampleTo')||'';
  modal.classList.add('open');
  let state={enabled:false,approvals:{},confirmedCount:0};
  try{state=await fetch('/api/approve?event='+encodeURIComponent(key)+'&ts='+Date.now(),{cache:'no-store'}).then(r=>r.json());}catch(_){}
@@ -211,10 +222,12 @@ async function openEmailModal(){
  cards.innerHTML=EMAIL_SEQ.map(s=>{const on=state.approvals&&state.approvals[s.o]===true;const when=key==='cary'?('📤 '+CARY_SEND_DATE[s.o]):(s.o===0?'Day of':s.o+' days before');
   return '<div class="ecard" data-o="'+s.o+'"><div class="top"><span class="lbl">'+s.lbl+'</span><span class="when">'+when+'</span>'+
    '<span class="stat '+(on?'on':'off')+'" data-role="stat">'+(on?'✓ Approved':'Not approved')+'</span>'+
-   '<button class="appbtn '+(on?'yes':'no')+'" data-role="btn">'+(on?'Unapprove':'Approve to send')+'</button></div>'+
+   '<button class="appbtn '+(on?'yes':'no')+'" data-role="btn">'+(on?'Unapprove':'Approve to send')+'</button>'+
+   '<button class="appbtn" data-role="sample" style="margin-left:8px;background:var(--sky);color:var(--midnight)">✉ Sample</button></div>'+
    (s.sub?'<div class="mnote">'+s.sub+'</div>':'')+
    '<iframe class="eframe" title="'+s.lbl+'" src="/api/email-preview?event='+encodeURIComponent(key)+'&offset='+s.o+'&ts='+Date.now()+'"></iframe></div>';}).join('');
  cards.querySelectorAll('.ecard').forEach(cardEl=>{const o=+cardEl.dataset.o;const btn=cardEl.querySelector('[data-role=btn]');const stat=cardEl.querySelector('[data-role=stat]');
+  const sbtn=cardEl.querySelector('[data-role=sample]');if(sbtn)sbtn.addEventListener('click',()=>sendSample(o));
   btn.addEventListener('click',async()=>{
    if(!state.enabled){alert('Connect Vercel KV first so approvals can be saved.');return;}
    const k=adminKey();if(!k)return;const wasOn=btn.classList.contains('yes');const want=wasOn?0:1;
@@ -227,7 +240,21 @@ async function openEmailModal(){
    }catch(_){alert('Could not update approval — check your connection.');btn.disabled=false;btn.textContent=wasOn?'Unapprove':'Approve to send';}
   });});
 }
+async function sendSample(off){
+ const to=(document.getElementById('emSampleTo').value||'').trim();
+ if(!to){alert('Enter an email address to send the sample to.');return;}
+ localStorage.setItem('abtSampleTo',to);
+ const k=adminKey();if(!k)return;
+ const e=EV[cur];const key=e.key||(e.name||'').toLowerCase();
+ try{const r=await fetch('/api/send-sample?event='+encodeURIComponent(key)+'&offset='+off+'&to='+encodeURIComponent(to)+'&key='+encodeURIComponent(k),{cache:'no-store'});
+  if(r.status===401){alert('Admin key rejected — try again.');localStorage.removeItem('abtAdminKey');return;}
+  const j=await r.json();
+  if(j.sent){alert('✅ Sent '+j.sent+' sample'+(j.sent===1?'':'s')+' to '+to+(j.failed?('\n⚠️ '+j.failed+' failed: '+(j.errors||[]).join('; ')):''));}
+  else{alert('Could not send: '+(j.error||(j.errors||[]).join('; ')||'unknown error'));}
+ }catch(_){alert('Could not reach the server to send samples. (Only works on the deployed site.)');}
+}
 document.getElementById('previewEmails').addEventListener('click',openEmailModal);
+document.getElementById('emSampleAll').addEventListener('click',()=>sendSample('all'));
 document.getElementById('emClose').addEventListener('click',closeModal);
 modal.addEventListener('click',ev=>{if(ev.target===modal)closeModal();});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeModal();});
