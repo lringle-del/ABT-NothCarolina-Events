@@ -32,17 +32,26 @@ Once disabled, anyone with the link can view the dashboard — no login needed.
 
 After changing environment variables, **redeploy** for them to take effect.
 
-## Automated reminder emails
+## Automated event email sequence
 
 A daily Vercel Cron hits `/api/send-reminders`, which emails registrants via
-[Resend](https://resend.com). It is **safe by default** — it only sends when
-ALL of these are true, otherwise it runs in preview mode (sends nothing and
-just reports who it would email):
+[Resend](https://resend.com). Each family gets a **sequence of four emails**
+tied to how many days remain before the event:
+
+| Days before | Email |
+| ----------- | ----- |
+| 7  | "You're invited" — one-week welcome: why we created the day + what's waiting |
+| 3  | "3 days to go" reminder |
+| 2  | "See you this weekend" reminder |
+| 0  | "Today's the day!" day-of note |
+
+It is **safe by default** — it only sends when ALL of these are true, otherwise
+it runs in preview mode (sends nothing and just reports who it would email):
 
 1. Caller is authorized (`CRON_SECRET`)
 2. `RESEND_API_KEY` is set
 3. `REMINDERS_LIVE` = `1`  ← the master "go live" switch
-4. Today is a reminder day for that event (2 days before + day-of by default)
+4. Today is a send day for that event (7, 3, 2, and 0 days before, by default)
 
 ### Env vars (Vercel → Settings → Environment Variables)
 
@@ -52,15 +61,18 @@ just reports who it would email):
 | `RESEND_API_KEY`       | From resend.com. Enables sending.                             |
 | `REMINDERS_LIVE`       | Set to `1` only when you're ready for real emails to go out.   |
 | `EVENT_CHARLOTTE_DATE` | Charlotte event date, `YYYY-MM-DD`.                           |
-| `EVENT_CARY_DATE`      | Cary event date, `YYYY-MM-DD`.                               |
-| `REMINDER_OFFSETS`     | (optional) days-before to send, e.g. `3,1,0`. Default `2,0`.  |
+| `EVENT_CARY_DATE`      | Cary event date, `YYYY-MM-DD`. Defaults to `2026-08-09`.     |
+| `REMINDER_OFFSETS`     | (optional) days-before to send. Default `7,3,2,0`.           |
 | `REMINDER_FROM`        | (optional) From address. Default `reminders@abtaba.com`.      |
+| `REMINDER_REPLY_TO`    | (optional) Reply-to address. Default `info@abtaba.com`.       |
 
 ### Preview it before going live
 
 Open (while logged in):
-`/api/send-reminders?event=charlotte&audience=pending&key=YOUR_CRON_SECRET&force=1`
-It lists exactly who would be emailed. When happy, set `REMINDERS_LIVE=1`.
+`/api/send-reminders?event=cary&audience=pending&key=YOUR_CRON_SECRET&force=1`
+It lists exactly who would be emailed and the subject line that would go out.
+Add `&offset=7` (or `3`, `2`, `0`) to preview which email in the sequence fires.
+When happy, set `REMINDERS_LIVE=1`.
 
 ## Local / structure notes
 
