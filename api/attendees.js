@@ -2,6 +2,8 @@
 // The private Eventbrite token lives ONLY in the Vercel Environment Variable
 // EVENTBRITE_TOKEN and is never sent to the browser.
 
+import { getConfirmed } from "./store.js";
+
 const BASE = "https://www.eventbriteapi.com/v3";
 // Test / non-attendee registrations to exclude from every count.
 const TEST_EMAILS = new Set([
@@ -140,15 +142,18 @@ export async function getEvents(token){
     if(charEbEmails.has((ff.email||"").toLowerCase())) continue; // avoid double-count
     charFams.push({...ff, confirmed:confirmed.has((ff.email||"").toLowerCase()), count:(ff.attendees||[]).length});
   }
+  // Spot-confirmations captured via the email "confirm" button (Vercel KV).
+  const caryConfirmed=new Set(await getConfirmed("cary"));
+  const isConf=e=>caryConfirmed.has((e||"").trim().toLowerCase())||null;
   const caryRaw=await attendeesForAll(caryList,token);
   const caryFams=buildFamilies(caryRaw).map(f=>{
-    delete f.emails; return {...f, confirmed:null, count:f.attendees.length};
+    delete f.emails; return {...f, confirmed:isConf(f.email), count:f.attendees.length};
   });
-  for(const ff of CARY_FORM_FAMILIES){ if(skip(ff.email)) continue; caryFams.push({...ff, confirmed:null, count:(ff.attendees||[]).length}); }
+  for(const ff of CARY_FORM_FAMILIES){ if(skip(ff.email)) continue; caryFams.push({...ff, confirmed:isConf(ff.email), count:(ff.attendees||[]).length}); }
 
   const out={events:[
     {key:"charlotte",name:"Charlotte",venue:"Free Magical Day of Fun",hasConfirm:true,families:charFams},
-    {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:false,families:caryFams}
+    {key:"cary",name:"Cary",venue:"We Rock the Spectrum Kids Gym",hasConfirm:true,families:caryFams}
   ]};
   return {out, dbg:{
     charlotteIds:charList, caryIds:caryList,
