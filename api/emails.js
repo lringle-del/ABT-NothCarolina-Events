@@ -88,7 +88,7 @@ function confirmButton(ev){
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;"><tr><td align="center">
       <a href="${href}" style="background:${CONFIRM_GREEN};color:#ffffff;text-decoration:none;font-size:17px;font-weight:700;padding:15px 30px;border-radius:10px;display:inline-block;">✅ Yes! I'm confirming our spot</a>
     </td></tr></table>
-    <p style="text-align:center;font-size:13px;color:#888;margin:8px 0 0;">Opens a ready-to-send reply — just tap send.</p>`;
+    <p style="text-align:center;font-size:13px;color:#888;margin:8px 0 0;">Opens a ready-to-send reply — just tap send. Button not working? Simply reply to this email with <strong>&ldquo;Confirm.&rdquo;</strong></p>`;
 }
 
 function shell(preheader, innerHtml){
