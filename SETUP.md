@@ -80,16 +80,16 @@ The header uses `logo.png` at the site root (served by Vercel). Swap that file t
 change the logo. Emails reference it by absolute URL (`<site>/logo.png`), derived
 from the request host or `PUBLIC_BASE_URL`.
 
-### Confirming a spot (reply-based)
+### Confirming a spot (button → pre-written reply)
 
-Emails 1–3 ask families to **reply with the word "Confirm."** Those replies go to
-`REMINDER_REPLY_TO` (default `lringle@abtaba.com`). To mark them on the dashboard,
-add their email addresses (lowercase) to `CARY_CONFIRMED_EMAILS` in
-`api/attendees.js` and redeploy — they'll show as ✓ Confirmed and drop out of the
-later "not-confirmed" reminders.
+Emails 1–3 have a green **"Yes! I'm confirming our spot"** button. It's a `mailto:`
+link — tapping it opens the family's email app with a ready-to-send reply
+("Yes! I am confirming my spot for the Free Magical Day of Fun on Sunday, August 9.")
+addressed to `REMINDER_REPLY_TO` (default `lringle@abtaba.com`). They just hit send.
 
-(If you ever connect Vercel KV, the old one-tap confirm button + `/api/confirm`
-endpoint also still work and merge with this list — but no database is required.)
+To mark confirmations on the dashboard, add those email addresses (lowercase) to
+`CARY_CONFIRMED_EMAILS` in `api/attendees.js` and redeploy — they'll show as
+✓ Confirmed and drop out of the later "not-confirmed" reminders. No database needed.
 
 ### Env vars (Vercel → Settings → Environment Variables)
 

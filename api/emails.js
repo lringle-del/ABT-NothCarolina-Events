@@ -75,11 +75,20 @@ function logisticsHtml(ev){
     </div>`;
 }
 
-// The "confirm your spot" call-to-action: a reply-to-confirm callout.
-function replyConfirmHtml(){
-  return `<div style="background:#EAF7EF;border:1px solid #B7E0C4;border-radius:12px;padding:14px 18px;margin:8px 0 4px;text-align:center;font-size:16px;line-height:1.5;color:${BRAND_NAVY};">
-      ✅ <strong>To confirm your spot,</strong> just reply to this email with the word <strong>&ldquo;Confirm.&rdquo;</strong>
-    </div>`;
+// Where confirmation replies should go.
+const CONFIRM_TO = process.env.REMINDER_REPLY_TO || "lringle@abtaba.com";
+
+// The "confirm your spot" button. It's a mailto: link that opens the family's
+// email app with a pre-written "Yes, I'm confirming" reply — they just hit send,
+// and it lands in the CONFIRM_TO inbox. No server/database involved.
+function confirmButton(ev){
+  const subject = encodeURIComponent(`Confirming our spot — ${ev.title} (${ev.dateLabel})`);
+  const body = encodeURIComponent(`Yes! I am confirming my spot for the ${ev.title} on ${ev.dateLabel}.`);
+  const href = `mailto:${CONFIRM_TO}?subject=${subject}&body=${body}`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;"><tr><td align="center">
+      <a href="${href}" style="background:${CONFIRM_GREEN};color:#ffffff;text-decoration:none;font-size:17px;font-weight:700;padding:15px 30px;border-radius:10px;display:inline-block;">✅ Yes! I'm confirming our spot</a>
+    </td></tr></table>
+    <p style="text-align:center;font-size:13px;color:#888;margin:8px 0 0;">Opens a ready-to-send reply — just tap send.</p>`;
 }
 
 function shell(preheader, innerHtml){
@@ -124,8 +133,8 @@ export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
         highlightsHtml() +
         logisticsHtml(ev) +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">
-          Can we count you in? Just reply to this email with the word &ldquo;Confirm&rdquo; and we'll save your family's spot.</p>` +
-        replyConfirmHtml() +
+          Can we count you in? Tap the button below to confirm your family's spot:</p>` +
+        confirmButton(ev) +
         signoff()
       ),
     };
@@ -143,8 +152,8 @@ export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
         highlightsHtml() +
         logisticsHtml(ev) +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">
-          Haven't confirmed yet? Just reply &ldquo;Confirm&rdquo; and we'll save your spot.</p>` +
-        replyConfirmHtml() +
+          Haven't confirmed yet? One tap saves your spot:</p>` +
+        confirmButton(ev) +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:16px 0 0;">
           Tip: our autism-friendly barber tends to stay busy — arriving early in your time slot is the best way
           to catch a free haircut. See you soon!</p>` +
@@ -166,8 +175,8 @@ export function buildEmail(offset, first, ev, confirmUrl, logoUrl){
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">A quick reminder of what's in store:</p>` +
         highlightsHtml() +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:0 0 8px;">
-          Still need to confirm? Reply &ldquo;Confirm&rdquo; to this email and you're all set.</p>` +
-        replyConfirmHtml() +
+          Still need to confirm? Just tap below and you're all set:</p>` +
+        confirmButton(ev) +
         `<p style="font-size:16px;line-height:1.6;color:#333;margin:16px 0 0;">
           Everything is free, and no special preparation is needed — just bring your family and come as you are.</p>` +
         signoff()
