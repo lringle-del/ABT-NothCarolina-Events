@@ -20,7 +20,7 @@
 
 import { getEvents } from "./attendees.js";
 import { buildEmail, EVENT_INFO } from "./emails.js";
-import { getApprovals, getConfirmed, confirmToken } from "./store.js";
+import { getApprovals, getConfirmed, confirmToken, kvEnabled } from "./store.js";
 
 const OFFSETS = (process.env.REMINDER_OFFSETS || "7,3,2,0").split(",").map(n => parseInt(n, 10)).filter(n => !isNaN(n));
 const FROM = process.env.REMINDER_FROM || "Above & Beyond ABA <reminders@abtaba.com>";
@@ -73,14 +73,18 @@ export default async function handler(req, res){
   const wanted = out.events.filter(e => which === "all" ? true : e.key === which);
 
   // Per-event date gate + approval + confirmations, resolved once per event.
+  // When storage isn't connected, there's no way to approve — so the approval
+  // gate is skipped entirely and sending is governed by REMINDERS_LIVE alone.
+  // When storage IS connected, each email must be approved on the dashboard.
+  const storageOn = kvEnabled();
   const gated = [];
   for(const e of wanted){
     const d = daysUntil(EVENT_DATE[e.key]);
     const dueToday = force || (d !== null && OFFSETS.includes(d));
     const offset = forceOffset !== null ? forceOffset : d;
-    const approvals = await getApprovals(e.key, OFFSETS);
-    const approved = approvals[offset] === true;
-    const confirmedSet = new Set(await getConfirmed(e.key));
+    const approvals = storageOn ? await getApprovals(e.key, OFFSETS) : {};
+    const approved = storageOn ? (approvals[offset] === true) : true;
+    const confirmedSet = new Set(storageOn ? await getConfirmed(e.key) : []);
     gated.push({ event:e, daysUntil:d, dueToday, offset, approved, confirmedSet });
   }
 
