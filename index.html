@@ -101,8 +101,8 @@ tr.dxrow td{background:#eef6f5;}
   <button class="dl" id="dlFull">⬇ Full details + answers</button>
   <button class="dl alt" id="dlAll">⬇ All emails</button>
   <button class="dl" id="emailPending">✉ Email not-confirmed</button>
+  <button class="dl" id="emailConfirmed" style="background:var(--lagoon)">✉ Email confirmed</button>
   <button class="dl" id="emailAll">✉ Email all</button>
-  <button class="dl" id="previewEmails" style="background:var(--midnight)">📧 Preview &amp; approve emails</button>
 </div>
 <div id="list"></div>
 <div class="note" id="note"></div>
@@ -190,18 +190,23 @@ document.getElementById('dlFull').addEventListener('click',()=>{const e=EV[cur];
  dl('details_'+e.name.toLowerCase()+'.csv',out);});
 document.getElementById('dlAll').addEventListener('click',()=>{let rows=[['Event','Family / Parent','Email','Phone','Guests','Confirmed']];const seen=new Set();
  for(const e of EV)for(const f of e.families){const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);rows.push([e.name,f.purchaser,f.email,f.phone,f.count,f.confirmed==null?'':(f.confirmed?'Yes':'No')]);}dl('emails_all_events.csv',rows);});
-function emailFamilies(onlyPending){const e=EV[cur];const seen=new Set();const emails=[];
- for(const f of e.families){if(!matches(f))continue;if(onlyPending&&f.confirmed)continue;const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);emails.push(f.email);}
- if(!emails.length){alert(onlyPending?('Everyone in '+e.name+' is already confirmed — no reminders needed. 🎉'):('No email addresses found for '+e.name+'.'));return;}
+function emailFamilies(mode){const e=EV[cur];const seen=new Set();const emails=[]; // mode: 'all' | 'pending' | 'confirmed'
+ for(const f of e.families){if(!matches(f))continue;
+  if(mode==='pending'&&f.confirmed)continue;
+  if(mode==='confirmed'&&!f.confirmed)continue;
+  const k=(f.email||'').toLowerCase();if(!f.email||seen.has(k))continue;seen.add(k);emails.push(f.email);}
+ if(!emails.length){alert(mode==='pending'?('Everyone in '+e.name+' is already confirmed — no reminders needed. 🎉'):(mode==='confirmed'?('No one has confirmed yet for '+e.name+'.'):('No email addresses found for '+e.name+'.')));return;}
  const list=emails.join(';');
- const subject=encodeURIComponent(e.name+' Event — Friendly Reminder');
- const body=encodeURIComponent('Hi there,\n\nThis is a friendly reminder about our upcoming '+e.name+' event. We can’t wait to see you and your family there!\n\nWarm regards,\nAbove & Beyond ABA');
+ const subject=encodeURIComponent(e.name+' Event — Above & Beyond ABA');
+ const body=encodeURIComponent('Hi there,\n\nA quick note about our upcoming '+e.name+' event. We can’t wait to see you and your family there!\n\nWarm regards,\nAbove & Beyond ABA');
  if(navigator.clipboard)navigator.clipboard.writeText(list).catch(()=>{});
  const href='mailto:?bcc='+encodeURIComponent(list)+'&subject='+subject+'&body='+body;
- alert(emails.length+' '+(onlyPending?'not-confirmed ':'')+e.name+' families added to BCC. (Also copied to your clipboard as backup — if the BCC line is empty, just paste into it.)');
+ const label=mode==='pending'?'not-confirmed ':(mode==='confirmed'?'confirmed ':'');
+ alert(emails.length+' '+label+e.name+' families added to BCC. (Also copied to your clipboard as backup — if the BCC line is empty, just paste into it.)');
  window.location.href=href;}
-document.getElementById('emailPending').addEventListener('click',()=>emailFamilies(true));
-document.getElementById('emailAll').addEventListener('click',()=>emailFamilies(false));
+document.getElementById('emailPending').addEventListener('click',()=>emailFamilies('pending'));
+document.getElementById('emailConfirmed').addEventListener('click',()=>emailFamilies('confirmed'));
+document.getElementById('emailAll').addEventListener('click',()=>emailFamilies('all'));
 // ---- Email sequence: preview + per-email approval -------------------------
 const EMAIL_SEQ=[{o:7,lbl:'Email 1 · One-week welcome',sub:'Why we created the day + what’s included'},{o:3,lbl:'Email 2 · 3-day reminder',sub:''},{o:2,lbl:'Email 3 · 2-day reminder',sub:''},{o:0,lbl:'Email 4 · Day-of note',sub:'Sent the morning of the event'}];
 const CARY_SEND_DATE={7:'Sun, Aug 2',3:'Thu, Aug 6',2:'Fri, Aug 7',0:'Sun, Aug 9'};
@@ -252,7 +257,6 @@ async function sendSample(off){
   else{alert('Could not send: '+(j.error||(j.errors||[]).join('; ')||'unknown error'));}
  }catch(_){alert('Could not reach the server to send samples. (Only works on the deployed site.)');}
 }
-document.getElementById('previewEmails').addEventListener('click',openEmailModal);
 document.getElementById('emSampleAll').addEventListener('click',()=>sendSample('all'));
 document.getElementById('emClose').addEventListener('click',closeModal);
 modal.addEventListener('click',ev=>{if(ev.target===modal)closeModal();});
