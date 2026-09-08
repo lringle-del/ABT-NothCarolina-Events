@@ -135,6 +135,21 @@ async function attendeesForAll(idList, token){
   for(const id of idList) raw = raw.concat(await allAttendees(id, token));
   return raw;
 }
+// Diagnostic only (no PII): what custom question texts exist on these Eventbrite
+// tickets, and how many attendees answered each. Used to check whether a phone
+// number question exists outside the built-in profile.cell_phone field.
+function questionStats(rawAttendees){
+  const stats=new Map();
+  for(const at of rawAttendees||[]){
+    for(const a of at.answers||[]){
+      const q=(a.question||"(no question text)").trim();
+      if(!stats.has(q)) stats.set(q,{question:q,total:0,nonEmpty:0});
+      const s=stats.get(q); s.total++;
+      if((a.answer||"").trim()) s.nonEmpty++;
+    }
+  }
+  return [...stats.values()];
+}
 
 // Build the full events payload (shared by the dashboard API and the reminder mailer).
 export async function getEvents(token){
@@ -175,6 +190,7 @@ export async function getEvents(token){
     charlotteIds:charList, caryIds:caryList,
     charlotteAttendeesFetched:charRaw.length, charlotteFamilies:charFams.length,
     caryAttendeesFetched:caryRaw.length, caryFamilies:caryFams.length,
+    charlotteQuestionStats:questionStats(charRaw), caryQuestionStats:questionStats(caryRaw),
     candidates
   }};
 }
