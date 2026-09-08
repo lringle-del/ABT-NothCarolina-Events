@@ -91,12 +91,16 @@ function buildFamilies(attendees){
     const email=((at.profile&&at.profile.email)||"").trim();
     if(skip(email)) continue;
     const oid=String(at.order_id||at.id);
+    // Phone was collected as a custom ticket question ("Phone number"), not
+    // Eventbrite's built-in cell_phone profile field — check both.
+    const phoneAns=((at.profile&&at.profile.cell_phone)||"").trim()||findAnswer(at.answers,["phone"]);
     if(!orders.has(oid)) orders.set(oid,{source:"Eventbrite",order:oid,
       date:(at.created||"").slice(0,10),
       purchaser:((at.profile&&at.profile.name)||"").trim(),
-      email, phone:((at.profile&&at.profile.cell_phone)||"").trim(),
+      email, phone:phoneAns,
       timeslot:"", emails:new Set(), attendees:[]});
     const fam=orders.get(oid);
+    if(!fam.phone && phoneAns) fam.phone=phoneAns;
     fam.emails.add(email.toLowerCase());
     fam.attendees.push(attendeeToChild(at));
   }
