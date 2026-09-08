@@ -38,7 +38,7 @@ const CARY_CONFIRMED_EMAILS = [
 // Charlotte families confirmed as having actually attended the event (from the
 // printed sign-in sheet, hand-marked and cross-checked against the roster).
 const CHARLOTTE_ATTENDED_EMAILS = [
-  "anitauc8@yahoo.com",       // Ana Molina
+  "anitaluc8@yahoo.com",      // Ana Molina
   "bmsmall19@yahoo.com",      // Brittany Ridenhour
   "srrazan9@gmail.com",       // Razan Sirriyeh
   "b.tidd87@gmail.com",       // Brittany Tidd
